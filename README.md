@@ -6,7 +6,7 @@ FileTools is a small VBA library that is useful for interacting with the file sy
 
 Just import the following code module in your VBA Project:
 
-* **LibFileTools.bas**
+* [**LibFileTools.bas**](src/LibFileTools.bas)
 
 ## Testing
 
