@@ -116,6 +116,7 @@ Public Function BrowseForFiles(Optional ByVal initialPath As String _
     Const actionButton As Long = -1
     '
     With Application.FileDialog(dialogTypeFilePicker)
+        If dialogTitle <> vbNullString Then .title = dialogTitle
         If initialPath <> vbNullString Then .InitialFileName = initialPath
         If .InitialFileName = vbNullString Then
             Dim app As Object: Set app = Application 'Needs to be late-binded
@@ -186,11 +187,13 @@ End Function
 '*******************************************************************************
 'Copies a file. Overwrites existing files unless 'failIfExists' is set to True
 'Note that VBA.FileCopy does not copy opened files on Windows but it does on Mac
-'Rather than failing and then trying again with attribute set to vbNormal this
-'   method sets the attribute to normal before copying. This is slightly slower
-'   than just copying directly but far outperforms two copy operations in the
-'   case where the first one fails and the second one is done after setting the
-'   file attribute to vbNormal
+'If the the destination file already exists and 'failIfExists' is set to False
+'   then this method must be able to overwrite the destination file. Rather than
+'   failing and then trying again with attribute set to vbNormal this method
+'   sets the attribute for the destination path to vbNormal before copying.
+'   This is slightly slower than just copying directly but far outperforms two
+'   copy operations in the case where the first one fails and the second one is
+'   done after setting the destination file attribute to vbNormal.
 '*******************************************************************************
 Public Function CopyFile(ByVal sourcePath As String _
                        , ByVal destinationPath As String _
@@ -991,8 +994,24 @@ Public Function MoveFile(ByVal sourcePath As String _
     If Not IsFile(sourcePath) Then Exit Function
     '
     On Error Resume Next
+    #If Mac Then
+        Dim fAttr As VbFileAttribute: fAttr = GetAttr(sourcePath)
+        If fAttr <> vbNormal Then SetAttr sourcePath, vbNormal
+        Err.Clear
+    #End If
+    '
     Name sourcePath As destinationPath
     MoveFile = (Err.Number = 0)
+    '
+    #If Mac Then
+        If fAttr <> vbNormal Then 'Restore attribute
+            If MoveFile Then
+                SetAttr destinationPath, fAttr
+            Else
+                SetAttr sourcePath, fAttr
+            End If
+        End If
+    #End If
     On Error GoTo 0
 End Function
 
