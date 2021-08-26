@@ -8,10 +8,6 @@ Just import the following code module in your VBA Project:
 
 * [**LibFileTools.bas**](src/LibFileTools.bas)
 
-## Testing
-
-Section will follow soon
-
 ## Usage
 
 Here are a couple of demo method calls. Also saved in the [Demo](src/Demo/DemoLibFileTools.bas) module.

@@ -1,2 +1,2 @@
-*.bas eol=crlf
-*.cls eol=crlf
+*.bas linguist-language=VBA
+*.cls linguist-language=VBA
