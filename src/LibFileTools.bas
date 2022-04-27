@@ -116,9 +116,9 @@ Public Function BrowseForFiles(Optional ByVal initialPath As String _
     Const actionButton As Long = -1
     '
     With Application.FileDialog(dialogTypeFilePicker)
-        If dialogTitle <> vbNullString Then .title = dialogTitle
-        If initialPath <> vbNullString Then .InitialFileName = initialPath
-        If .InitialFileName = vbNullString Then
+        If LenB(dialogTitle) > 0 Then .title = dialogTitle
+        If LenB(initialPath) > 0 Then .InitialFileName = initialPath
+        If LenB(.InitialFileName) = 0 Then
             Dim app As Object: Set app = Application 'Needs to be late-binded
             Select Case Application.Name
                 Case "Microsoft Excel": .InitialFileName = app.ThisWorkbook.Path
@@ -158,9 +158,9 @@ Public Function BrowseForFolder(Optional ByVal initialPath As String _
     Const actionButton As Long = -1
     '
     With Application.FileDialog(dialogTypeFolderPicker)
-        If dialogTitle <> vbNullString Then .title = dialogTitle
-        If initialPath <> vbNullString Then .InitialFileName = initialPath
-        If .InitialFileName = vbNullString Then
+        If LenB(dialogTitle) > 0 Then .title = dialogTitle
+        If LenB(initialPath) > 0 Then .InitialFileName = initialPath
+        If LenB(.InitialFileName) = 0 Then
             Dim app As Object: Set app = Application 'Needs to be late-binded
             Select Case Application.Name
                 Case "Microsoft Excel": .InitialFileName = app.ThisWorkbook.Path
@@ -199,8 +199,8 @@ Public Function CopyFile(ByVal sourcePath As String _
                        , ByVal destinationPath As String _
                        , Optional ByVal failIfExists As Boolean = False _
 ) As Boolean
-    If sourcePath = vbNullString Then Exit Function
-    If destinationPath = vbNullString Then Exit Function
+    If LenB(sourcePath) = 0 Then Exit Function
+    If LenB(destinationPath) = 0 Then Exit Function
     '
     #If Mac Then
         If failIfExists Then If IsFile(destinationPath) Then Exit Function
@@ -313,7 +313,7 @@ End Function
 '   file attribute to vbNormal
 '*******************************************************************************
 Public Function DeleteFile(ByVal filePath As String) As Boolean
-    If filePath = vbNullString Then Exit Function
+    If LenB(filePath) = 0 Then Exit Function
     '
     On Error Resume Next
     SetAttr filePath, vbNormal 'Too costly to do after failing Delete
@@ -343,7 +343,7 @@ Public Function DeleteFolder(ByVal folderPath As String _
                            , Optional ByVal deleteContents As Boolean = False _
                            , Optional ByVal failIfMissing As Boolean = False _
 ) As Boolean
-    If folderPath = vbNullString Then Exit Function
+    If LenB(folderPath) = 0 Then Exit Function
     '
     If Not IsFolder(folderPath) Then
         DeleteFolder = Not failIfMissing
@@ -508,7 +508,7 @@ Public Function FixPathSeparators(ByVal pathToFix As String) As String
     Static twoSeparators As String
     Dim resultPath As String: resultPath = pathToFix
     '
-    If oneSeparator = vbNullString Then
+    If LenB(oneSeparator) = 0 Then
         oneSeparator = GetPathSeparator()
         twoSeparators = oneSeparator & oneSeparator
     End If
@@ -727,7 +727,7 @@ End Sub
 #Else
 Public Function GetLocalPath(ByVal fullPath As String) As String
     With GetDriveInfo(fullPath)
-        If .driveLetter = vbNullString Then
+        If LenB(.driveLetter) = 0 Then
             GetLocalPath = GetOneDriveLocalPath(fullPath, rebuildCache:=False)
         Else
             GetLocalPath = FixPathSeparators(Replace(fullPath _
@@ -743,7 +743,7 @@ End Function
 '*******************************************************************************
 Public Function GetPathSeparator() As String
     Static pSeparator As String
-    If pSeparator = vbNullString Then pSeparator = Application.PathSeparator
+    If LenB(pSeparator) = 0 Then pSeparator = Application.PathSeparator
     GetPathSeparator = pSeparator
 End Function
 
@@ -755,7 +755,7 @@ End Function
 #Else
 Public Function GetUNCPath(ByVal fullPath As String) As String
     With GetDriveInfo(fullPath)
-        If .shareName = vbNullString Then Exit Function 'Not UNC
+        If LenB(.shareName) = 0 Then Exit Function  'Not UNC
         GetUNCPath = FixPathSeparators(Replace(fullPath _
         , .driveName, .shareName, 1, 1, vbTextCompare))
     End With
@@ -772,7 +772,7 @@ Private Function GetDriveInfo(ByVal fullPath As String) As DRIVE_INFO
     If fso Is Nothing Then Exit Function
     '
     Dim driveName As String: driveName = fso.GetDriveName(fullPath)
-    If driveName = vbNullString Then Exit Function
+    If LenB(driveName) = 0 Then Exit Function
     '
     Dim fsDrive As Object
     On Error Resume Next
@@ -780,7 +780,7 @@ Private Function GetDriveInfo(ByVal fullPath As String) As DRIVE_INFO
     On Error GoTo 0
     If fsDrive Is Nothing Then Exit Function
     '
-    If fsDrive.driveLetter = vbNullString Then
+    If LenB(fsDrive.driveLetter) = 0 Then
         Dim sn As Long: sn = fsDrive.SerialNumber
         Dim tempDrive As Object
         Dim isFound As Boolean
@@ -800,7 +800,7 @@ Private Function GetDriveInfo(ByVal fullPath As String) As DRIVE_INFO
         .driveLetter = fsDrive.driveLetter
         .fileSystem = fsDrive.fileSystem
         .shareName = fsDrive.shareName
-        If .shareName <> vbNullString Then
+        If LenB(.shareName) > 0 Then
             .driveName = AlignDriveNameIfNeeded(.driveName, .shareName)
         End If
     End With
@@ -930,7 +930,7 @@ Private Function GetOneDriveInfo(ByVal rebuildCache As Boolean) As ONEDRIVE_INFO
     For Each subKey In arrKeys
         fullKey = odAccountsKey & subKey
         oReg.GetStringValue HKCU, fullKey, "cid", cid
-        If cid <> vbNullString Then collValidKeys.Add fullKey
+        If LenB(cid) > 0 Then collValidKeys.Add fullKey
     Next subKey
     If collValidKeys.Count = 0 Then Exit Function
     '
@@ -989,8 +989,8 @@ End Function
 Public Function MoveFile(ByVal sourcePath As String _
                        , ByVal destinationPath As String _
 ) As Boolean
-    If sourcePath = vbNullString Then Exit Function
-    If destinationPath = vbNullString Then Exit Function
+    If LenB(sourcePath) = 0 Then Exit Function
+    If LenB(destinationPath) = 0 Then Exit Function
     If Not IsFile(sourcePath) Then Exit Function
     '
     On Error Resume Next
@@ -1021,8 +1021,8 @@ End Function
 Public Function MoveFolder(ByVal sourcePath As String _
                          , ByVal destinationPath As String _
 ) As Boolean
-    If sourcePath = vbNullString Then Exit Function
-    If destinationPath = vbNullString Then Exit Function
+    If LenB(sourcePath) = 0 Then Exit Function
+    If LenB(destinationPath) = 0 Then Exit Function
     If Not IsFolder(sourcePath) Then Exit Function
     If IsFolder(destinationPath) Then Exit Function
     '
