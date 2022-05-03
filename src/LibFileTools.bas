@@ -52,6 +52,7 @@ Attribute VB_Name = "LibFileTools"
 ''    - GetLocalPath      (Windows only)
 ''    - GetPathSeparator
 ''    - GetUNCPath        (Windows only)
+''    - GetWebPath        (Windows only)
 ''    - IsFile
 ''    - IsFolder
 ''    - MoveFile
