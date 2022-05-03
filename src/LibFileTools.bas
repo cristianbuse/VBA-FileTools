@@ -147,9 +147,7 @@ End Function
 '*******************************************************************************
 'Returns a folder path by using a FolderPicker FileDialog
 '*******************************************************************************
-#If Mac Then
-    'Not implemented
-#Else
+#If Mac = 0 Then
 Public Function BrowseForFolder(Optional ByVal initialPath As String _
                               , Optional ByVal dialogTitle As String _
 ) As String
@@ -443,8 +441,7 @@ End Function
 'Returns a collection of forbidden characters for a file/folder name
 'Ability to add the caret ^ char - forbidden on FAT file systems but not on NTFS
 '*******************************************************************************
-#If Mac Then
-#Else
+#If Mac = 0 Then
 Private Function ForbiddenNameChars(ByVal addCaret As Boolean) As Collection
     Static collForbiddenChars As Collection
     Static hasCaret As Boolean
@@ -475,8 +472,7 @@ End Function
 '*******************************************************************************
 'Windows file/folder reserved names: com1 to com9, lpt1 to lpt9, con, nul, prn
 '*******************************************************************************
-#If Mac Then
-#Else
+#If Mac = 0 Then
 Private Function IsReservedName(ByVal nameToCheck As String) As Boolean
     Static collReservedNames As Collection
     '
@@ -513,8 +509,7 @@ Public Function FixPathSeparators(ByVal pathToFix As String) As String
         twoSeparators = oneSeparator & oneSeparator
     End If
     '
-    #If Mac Then
-    #Else 'Replace forward slashes with back slashes for Windows
+    #If Mac = 0 Then 'Replace forward slashes with back slashes for Windows
         resultPath = Replace(resultPath, "/", oneSeparator)
         Dim isUNC As Boolean: isUNC = Left$(resultPath, 2) = twoSeparators '\\
     #End If
@@ -528,8 +523,7 @@ Public Function FixPathSeparators(ByVal pathToFix As String) As String
         currentLength = Len(resultPath)
     Loop Until previousLength = currentLength
     '
-    #If Mac Then
-    #Else
+    #If Mac = 0 Then
         If isUNC Then resultPath = oneSeparator & resultPath
     #End If
     '
@@ -539,8 +533,7 @@ End Function
 '*******************************************************************************
 'Retrieves the owner name for a file path
 '*******************************************************************************
-#If Mac Then
-#Else
+#If Mac = 0 Then
 Public Function GetFileOwner(ByVal filePath As String) As String
     Const osi As Long = 1 'OWNER_SECURITY_INFORMATION
     Dim sdSize As Long
@@ -723,8 +716,7 @@ End Sub
 'Returns the local drive path for a given path or null string if path not local
 'Note that the input path does not need to be an existing file/folder
 '*******************************************************************************
-#If Mac Then
-#Else
+#If Mac = 0 Then
 Public Function GetLocalPath(ByVal fullPath As String) As String
     With GetDriveInfo(fullPath)
         If LenB(.driveLetter) = 0 Then
@@ -751,8 +743,7 @@ End Function
 'Returns the UNC path for a given path or null string if path is not remote
 'Note that the input path does not need to be an existing file/folder
 '*******************************************************************************
-#If Mac Then
-#Else
+#If Mac = 0 Then
 Public Function GetUNCPath(ByVal fullPath As String) As String
     With GetDriveInfo(fullPath)
         If LenB(.shareName) = 0 Then Exit Function  'Not UNC
@@ -763,10 +754,19 @@ End Function
 #End If
 
 '*******************************************************************************
+'Returns the web path for a OneDrive local path or null string if not OneDrive
+'Note that the input path does not need to be an existing file/folder
+'*******************************************************************************
+#If Mac = 0 Then
+Public Function GetWebPath(ByVal fullPath As String) As String
+    GetWebPath = GetOneDriveWebPath(fullPath, rebuildCache:=False)
+End Function
+#End If
+
+'*******************************************************************************
 'Returns basic drive information about a full path
 '*******************************************************************************
-#If Mac Then
-#Else
+#If Mac = 0 Then
 Private Function GetDriveInfo(ByVal fullPath As String) As DRIVE_INFO
     Dim fso As Object: Set fso = GetFileSystemObject()
     If fso Is Nothing Then Exit Function
@@ -810,8 +810,7 @@ End Function
 '*******************************************************************************
 'Late-bounded file system for Windows
 '*******************************************************************************
-#If Mac Then
-#Else
+#If Mac = 0 Then
 Private Function GetFileSystemObject() As Object
     Static fso As Object
     '
@@ -828,8 +827,7 @@ End Function
 'Aligns a wrong drive name with the share name
 'Example: \\emea\ to \\emea.companyName.net\
 '*******************************************************************************
-#If Mac Then
-#Else
+#If Mac = 0 Then
 Private Function AlignDriveNameIfNeeded(ByVal driveName As String _
                                       , ByVal shareName As String _
 ) As String
@@ -851,8 +849,7 @@ End Function
 'Returns the local path for a OneDrive web path
 'Returns null string if the path provided is not a valid OneDrive web path
 '*******************************************************************************
-#If Mac Then
-#Else
+#If Mac = 0 Then
 Private Function GetOneDriveLocalPath(ByVal odWebPath As String _
                                     , ByVal rebuildCache As Boolean _
 ) As String
@@ -888,11 +885,46 @@ End Function
 #End If
 
 '*******************************************************************************
+'Returns the web path for a OneDrive local path
+'Returns null string if the path provided is not a valid OneDrive local path
+'*******************************************************************************
+#If Mac = 0 Then
+Private Function GetOneDriveWebPath(ByVal odLocalPath As String _
+                                  , ByVal rebuildCache As Boolean _
+) As String
+    Dim odInfo As ONEDRIVE_INFO
+    Dim odAccount As ONEDRIVE_ACCOUNT_INFO
+    Dim i As Long
+    Dim lPath As String
+    Dim root As String
+    Dim rPath As String
+    '
+    odInfo = GetOneDriveInfo(rebuildCache)
+    If odInfo.accountsCount = 0 Then Exit Function
+    '
+    For i = LBound(odInfo.accounts) To UBound(odInfo.accounts)
+        odAccount = odInfo.accounts(i)
+        If odAccount.isBusiness Then
+            root = odAccount.endpointUri
+        Else
+            root = "https://d.docs.live.net/" & odAccount.cid & "/Documents"
+        End If
+        lPath = odAccount.userFolder
+        If StrComp(Left$(odLocalPath, Len(lPath)), lPath, vbTextCompare) = 0 Then
+            rPath = Right$(odLocalPath, Len(odLocalPath) - Len(lPath))
+            rPath = root & Replace(rPath, "\", "/")
+            Exit For
+        End If
+    Next i
+    GetOneDriveWebPath = rPath
+End Function
+#End If
+
+'*******************************************************************************
 'Returns info about valid OneDrive accounts associated to the current user
 'https://docs.microsoft.com/en-us/windows/win32/wmisdk/obtaining-registry-data
 '*******************************************************************************
-#If Mac Then
-#Else
+#If Mac = 0 Then
 Private Function GetOneDriveInfo(ByVal rebuildCache As Boolean) As ONEDRIVE_INFO
     Static odInfo As ONEDRIVE_INFO
     '
@@ -1037,8 +1069,7 @@ Public Function MoveFolder(ByVal sourcePath As String _
     On Error GoTo 0
     '
     'Try FSO if available
-    #If Mac Then
-    #Else
+    #If Mac = 0 Then
         On Error Resume Next
         GetFileSystemObject().MoveFolder sourcePath, destinationPath
         If Err.Number = 0 Then
