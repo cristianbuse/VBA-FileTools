@@ -110,8 +110,7 @@ Public Function BrowseForFiles(Optional ByVal initialPath As String _
                              , Optional ByVal dialogTitle As String _
                              , Optional ByVal filterDesc As String _
                              , Optional ByVal filterList As String _
-                             , Optional ByVal allowMultiFiles As Boolean = True _
-) As Collection
+                             , Optional ByVal allowMultiFiles As Boolean = True) As Collection
     'In case reference to Microsoft Office X.XX Object Library is missing
     Const dialogTypeFilePicker As Long = 3 'msoFileDialogFilePicker
     Const actionButton As Long = -1
@@ -123,7 +122,7 @@ Public Function BrowseForFiles(Optional ByVal initialPath As String _
             Dim app As Object: Set app = Application 'Needs to be late-binded
             Select Case Application.Name
                 Case "Microsoft Excel": .InitialFileName = app.ThisWorkbook.Path
-                Case "Microsoft Word": .InitialFileName = app.ThisDocument.Path
+                Case "Microsoft Word":  .InitialFileName = app.ThisDocument.Path
             End Select
         End If
         '
@@ -150,8 +149,7 @@ End Function
 '*******************************************************************************
 #If Mac = 0 Then
 Public Function BrowseForFolder(Optional ByVal initialPath As String _
-                              , Optional ByVal dialogTitle As String _
-) As String
+                              , Optional ByVal dialogTitle As String) As String
     'In case reference to Microsoft Office X.XX Object Library is missing
     Const dialogTypeFolderPicker As Long = 4 'msoFileDialogFolderPicker
     Const actionButton As Long = -1
@@ -163,7 +161,7 @@ Public Function BrowseForFolder(Optional ByVal initialPath As String _
             Dim app As Object: Set app = Application 'Needs to be late-binded
             Select Case Application.Name
                 Case "Microsoft Excel": .InitialFileName = app.ThisWorkbook.Path
-                Case "Microsoft Word": .InitialFileName = app.ThisDocument.Path
+                Case "Microsoft Word":  .InitialFileName = app.ThisDocument.Path
             End Select
         End If
         If .Show = actionButton Then
@@ -178,8 +176,7 @@ End Function
 'Combines a folder path with a file/folder name or an incomplete path (ex. \a\b)
 '*******************************************************************************
 Public Function BuildPath(ByVal folderPath As String _
-                        , ByVal fsName As String _
-) As String
+                        , ByVal fsName As String) As String
     BuildPath = FixPathSeparators(folderPath & GetPathSeparator() & fsName)
 End Function
 
@@ -196,8 +193,7 @@ End Function
 '*******************************************************************************
 Public Function CopyFile(ByVal sourcePath As String _
                        , ByVal destinationPath As String _
-                       , Optional ByVal failIfExists As Boolean = False _
-) As Boolean
+                       , Optional ByVal failIfExists As Boolean = False) As Boolean
     If LenB(sourcePath) = 0 Then Exit Function
     If LenB(destinationPath) = 0 Then Exit Function
     '
@@ -232,8 +228,7 @@ Public Function CopyFolder(ByVal sourcePath As String _
                          , ByVal destinationPath As String _
                          , Optional ByVal includeSubFolders As Boolean = True _
                          , Optional ByVal failIfExists As Boolean = False _
-                         , Optional ByVal ignoreFailedFiles As Boolean = False _
-) As Boolean
+                         , Optional ByVal ignoreFailedFiles As Boolean = False) As Boolean
     If Not IsFolder(sourcePath) Then Exit Function
     If Not CreateFolder(destinationPath, failIfExists) Then Exit Function
     '
@@ -267,8 +262,7 @@ End Function
 'Creates a folder including parent folders if needed
 '*******************************************************************************
 Public Function CreateFolder(ByVal folderPath As String _
-                           , Optional ByVal failIfExists As Boolean = False _
-) As Boolean
+                           , Optional ByVal failIfExists As Boolean = False) As Boolean
     If IsFolder(folderPath) Then
         CreateFolder = Not failIfExists
         Exit Function
@@ -340,8 +334,7 @@ End Function
 '*******************************************************************************
 Public Function DeleteFolder(ByVal folderPath As String _
                            , Optional ByVal deleteContents As Boolean = False _
-                           , Optional ByVal failIfMissing As Boolean = False _
-) As Boolean
+                           , Optional ByVal failIfMissing As Boolean = False) As Boolean
     If LenB(folderPath) = 0 Then Exit Function
     '
     If Not IsFolder(folderPath) Then
@@ -409,8 +402,7 @@ Public Function FixFileName(ByVal nameToFix As String) As String
 End Function
 #Else
 Public Function FixFileName(ByVal nameToFix As String _
-                          , Optional ByVal isFATFileSystem As Boolean = False _
-) As String
+                          , Optional ByVal isFATFileSystem As Boolean = False) As String
     Dim resultName As String: resultName = nameToFix
     Dim v As Variant
     '
@@ -587,8 +579,7 @@ End Function
 Public Function GetFiles(ByVal folderPath As String _
                        , Optional ByVal includeSubFolders As Boolean = False _
                        , Optional ByVal includeHidden As Boolean = False _
-                       , Optional ByVal includeSystem As Boolean = False _
-) As Collection
+                       , Optional ByVal includeSystem As Boolean = False) As Collection
     Dim collFiles As New Collection
     Dim fAttribute As VbFileAttribute
     '
@@ -621,8 +612,7 @@ End Function
 '*******************************************************************************
 Private Sub AddFilesTo(ByVal collTarget As Collection _
                      , ByVal folderPath As String _
-                     , ByVal fAttribute As VbFileAttribute _
-)
+                     , ByVal fAttribute As VbFileAttribute)
     Dim fixedPath As String
     Dim fileName As String
     Dim fullPath As String
@@ -645,8 +635,7 @@ End Sub
 Public Function GetFolders(ByVal folderPath As String _
                          , Optional ByVal includeSubFolders As Boolean = False _
                          , Optional ByVal includeHidden As Boolean = False _
-                         , Optional ByVal includeSystem As Boolean = False _
-) As Collection
+                         , Optional ByVal includeSystem As Boolean = False) As Collection
     Dim collFolders As New Collection
     Dim fAttribute As VbFileAttribute
     '
@@ -680,8 +669,7 @@ End Function
 Private Sub AddFoldersTo(ByVal collTarget As Collection _
                        , ByVal folderPath As String _
                        , ByVal includeSubFolders As Boolean _
-                       , ByVal fAttribute As VbFileAttribute _
-)
+                       , ByVal fAttribute As VbFileAttribute)
     Const currentFolder As String = "."
     Const parentFolder As String = ".."
     Dim fixedPath As String
@@ -830,8 +818,7 @@ End Function
 '*******************************************************************************
 #If Mac = 0 Then
 Private Function AlignDriveNameIfNeeded(ByVal driveName As String _
-                                      , ByVal shareName As String _
-) As String
+                                      , ByVal shareName As String) As String
     Dim sepIndex As Long
     '
     sepIndex = VBA.InStr(3, driveName, GetPathSeparator())
@@ -852,8 +839,7 @@ End Function
 '*******************************************************************************
 #If Mac = 0 Then
 Private Function GetOneDriveLocalPath(ByVal odWebPath As String _
-                                    , ByVal rebuildCache As Boolean _
-) As String
+                                    , ByVal rebuildCache As Boolean) As String
     If InStr(1, odWebPath, "https://", vbTextCompare) = 0 Then Exit Function
     '
     Dim odInfo As ONEDRIVE_INFO
@@ -891,8 +877,7 @@ End Function
 '*******************************************************************************
 #If Mac = 0 Then
 Private Function GetOneDriveWebPath(ByVal odLocalPath As String _
-                                  , ByVal rebuildCache As Boolean _
-) As String
+                                  , ByVal rebuildCache As Boolean) As String
     Dim odInfo As ONEDRIVE_INFO
     Dim odAccount As ONEDRIVE_ACCOUNT_INFO
     Dim i As Long
@@ -1020,8 +1005,7 @@ End Function
 'Moves (or renames) a file
 '*******************************************************************************
 Public Function MoveFile(ByVal sourcePath As String _
-                       , ByVal destinationPath As String _
-) As Boolean
+                       , ByVal destinationPath As String) As Boolean
     If LenB(sourcePath) = 0 Then Exit Function
     If LenB(destinationPath) = 0 Then Exit Function
     If Not IsFile(sourcePath) Then Exit Function
@@ -1052,8 +1036,7 @@ End Function
 'Moves (or renames) a folder
 '*******************************************************************************
 Public Function MoveFolder(ByVal sourcePath As String _
-                         , ByVal destinationPath As String _
-) As Boolean
+                         , ByVal destinationPath As String) As Boolean
     If LenB(sourcePath) = 0 Then Exit Function
     If LenB(destinationPath) = 0 Then Exit Function
     If Not IsFolder(sourcePath) Then Exit Function
