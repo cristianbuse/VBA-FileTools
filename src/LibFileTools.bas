@@ -50,13 +50,13 @@ Attribute VB_Name = "LibFileTools"
 ''    - GetFiles
 ''    - GetFolders
 ''    - GetLocalPath      (Windows only)
-''    - GetPathSeparator
 ''    - GetUNCPath        (Windows only)
 ''    - GetWebPath        (Windows only)
 ''    - IsFile
 ''    - IsFolder
 ''    - MoveFile
 ''    - MoveFolder
+''    - PathSeparator
 '*******************************************************************************
 
 Option Explicit
@@ -164,7 +164,7 @@ End Function
 '*******************************************************************************
 Public Function BuildPath(ByVal folderPath As String _
                         , ByVal fsName As String) As String
-    BuildPath = FixPathSeparators(folderPath & GetPathSeparator() & fsName)
+    BuildPath = FixPathSeparators(folderPath & PathSeparator() & fsName)
 End Function
 
 '*******************************************************************************
@@ -269,7 +269,7 @@ Public Function CreateFolder(ByVal folderPath As String _
     Do
         collFoldersToCreate.Add fullPath
         '
-        sepIndex = InStrRev(fullPath, GetPathSeparator())
+        sepIndex = InStrRev(fullPath, PathSeparator())
         If sepIndex < 3 Then Exit Do
         '
         fullPath = Left$(fullPath, sepIndex - 1)
@@ -485,7 +485,7 @@ Public Function FixPathSeparators(ByVal pathToFix As String) As String
     Dim resultPath As String: resultPath = pathToFix
     '
     If LenB(oneSeparator) = 0 Then
-        oneSeparator = GetPathSeparator()
+        oneSeparator = PathSeparator()
         twoSeparators = oneSeparator & oneSeparator
     End If
     '
@@ -551,7 +551,7 @@ Public Function GetFileOwner(ByVal filePath As String) As String
                       , nameLen, owDomain, domainLen, 0&) = 0 Then Exit Function
     '
     'Return result
-    GetFileOwner = owDomain & GetPathSeparator() & owName
+    GetFileOwner = owDomain & PathSeparator() & owName
 End Function
 #End If
 
@@ -707,15 +707,6 @@ End Function
 #End If
 
 '*******************************************************************************
-'Returns the path separator character. Encapsulates Application.PathSeparator
-'*******************************************************************************
-Public Function GetPathSeparator() As String
-    Static pSeparator As String
-    If LenB(pSeparator) = 0 Then pSeparator = Application.PathSeparator
-    GetPathSeparator = pSeparator
-End Function
-
-'*******************************************************************************
 'Returns the UNC path for a given path or null string if path is not remote
 'Note that the input path does not need to be an existing file/folder
 '*******************************************************************************
@@ -808,10 +799,10 @@ Private Function AlignDriveNameIfNeeded(ByVal driveName As String _
                                       , ByVal shareName As String) As String
     Dim sepIndex As Long
     '
-    sepIndex = VBA.InStr(3, driveName, GetPathSeparator())
+    sepIndex = VBA.InStr(3, driveName, PathSeparator())
     If sepIndex > 0 Then
         Dim newName As String: newName = VBA.Left$(driveName, sepIndex - 1)
-        sepIndex = VBA.InStr(3, shareName, GetPathSeparator())
+        sepIndex = VBA.InStr(3, shareName, PathSeparator())
         newName = newName & Right$(shareName, Len(shareName) - sepIndex + 1)
         AlignDriveNameIfNeeded = newName
     Else
@@ -1224,4 +1215,28 @@ Public Function MoveFolder(ByVal sourcePath As String _
     End If
     '
     MoveFolder = True
+End Function
+
+'*******************************************************************************
+'Returns the path separator character. Encapsulates Application.PathSeparator
+'*******************************************************************************
+Public Function PathSeparator() As String
+    Static pSeparator As String
+    Static isSet As Boolean
+    '
+    If Not isSet Then
+        Dim app As Object: Set app = Application 'Needs to be late-binded
+        On Error Resume Next
+        pSeparator = app.PathSeparator
+        If Err.Number <> 0 Then
+            #If Mac Then
+                pSeparator = "/"
+            #Else
+                pSeparator = "\"
+            #End If
+        End If
+        On Error GoTo 0
+        isSet = True
+    End If
+    PathSeparator = pSeparator
 End Function

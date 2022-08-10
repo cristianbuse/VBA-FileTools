@@ -27,13 +27,13 @@ Public/Exposed methods:
  - GetFiles
  - GetFolders
  - GetLocalPath      (Windows only - covers UNC/OneDrive/SharePoint paths)
- - GetPathSeparator
  - GetUNCPath        (Windows only)
  - GetWebPath        (Windows only)
  - IsFile
  - IsFolder
  - MoveFile
  - MoveFolder
+ - PathSeparator
 
 ## Notes
 * No extra library references are needed (e.g. Microsoft Scripting Runtime)
@@ -42,7 +42,7 @@ Public/Exposed methods:
 * Works in both x32 and x64 application environments
 
 ## Contributions
-Many thanks to [@guwidoe](https://github.com/guwidoe) / [SO](https://stackoverflow.com/users/12287457/gwd)). See his contributions in [#1](https://github.com/cristianbuse/VBA-FileTools/issues/1).
+Many thanks to [@guwidoe](https://github.com/guwidoe) / [SO](https://stackoverflow.com/users/12287457/gwd). See his contributions in [#1](https://github.com/cristianbuse/VBA-FileTools/issues/1).
 
 ## License
 MIT License
