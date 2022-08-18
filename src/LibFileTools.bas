@@ -84,6 +84,21 @@ Private Type DRIVE_INFO
     shareName As String
 End Type
 
+Private Type ONEDRIVE_PROVIDER
+    urlNamespace As String
+    fullWebPath As String
+    mountPoint As String
+    isBusiness As Boolean
+    isMain As Boolean
+End Type
+Private Type ONEDRIVE_PROVIDERS
+    arr() As ONEDRIVE_PROVIDER
+    pCount As Long
+    isSet As Boolean
+End Type
+
+Private m_providers As ONEDRIVE_PROVIDERS
+
 '*******************************************************************************
 'Returns a Collection of file paths by using a FilePicker FileDialog
 '*******************************************************************************
@@ -823,21 +838,61 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
                                    , ByVal rebuildCache As Boolean) As String
     If InStr(1, odWebPath, "https://", vbTextCompare) <> 1 Then Exit Function
     '
-    Dim collLocalPaths As Collection
-    Dim collWebPaths As Collection
     Dim webPath As Variant
     Dim tempPath As String
     Dim rPart As String
+    Dim collMatches As New Collection
+    Dim bestMatch As Long
+    Dim i As Long
     '
-    PopulatePaths collLocalPaths, collWebPaths, rebuildCache
-    For Each webPath In collWebPaths
-        tempPath = Left$(odWebPath, Len(webPath))
-        If StrComp(tempPath, webPath, vbTextCompare) = 0 Then Exit For
-    Next webPath
-    If IsEmpty(webPath) Then Exit Function
+    If rebuildCache Or Not m_providers.isSet Then ReadProviders
+    For i = 1 To m_providers.pCount
+        With m_providers.arr(i)
+            If .isBusiness Then
+                webPath = .urlNamespace
+            Else
+                webPath = .fullWebPath
+            End If
+            tempPath = Left$(odWebPath, Len(webPath))
+            If StrComp(tempPath, webPath, vbTextCompare) = 0 Then
+                collMatches.Add i
+                If Not .isBusiness Then Exit For
+            End If
+        End With
+    Next i
     '
-    rPart = Mid$(odWebPath, Len(webPath) + 1)
-    GetOneDriveLocalPath = BuildPath(collLocalPaths(webPath), rPart)
+    Select Case collMatches.Count
+    Case 0: Exit Function
+    Case 1: bestMatch = collMatches(1)
+    Case Else
+        Dim pos As Long: pos = Len(odWebPath) + 1
+        Dim v As Variant
+        Do
+            pos = InStrRev(odWebPath, "/", pos - 1)
+            tempPath = Left$(odWebPath, pos)
+            For Each v In collMatches
+                With m_providers.arr(v)
+                    rPart = Mid$(tempPath, Len(.fullWebPath) + 1)
+                    If IsFolder(BuildPath(.mountPoint, rPart)) Then
+                        If bestMatch = 0 Or .isMain Then
+                            bestMatch = v
+                        Else
+                            webPath = .fullWebPath
+                            With m_providers.arr(bestMatch)
+                                If Len(webPath) > Len(.fullWebPath) Then
+                                    If Not .isMain Then bestMatch = v
+                                End If
+                            End With
+                        End If
+                    End If
+                End With
+            Next v
+        Loop Until bestMatch > 0
+    End Select
+    With m_providers.arr(bestMatch)
+        rPart = Mid$(odWebPath, Len(.fullWebPath) + 1)
+        GetOneDriveLocalPath = BuildPath(.mountPoint, rPart)
+    End With
 End Function
 #End If
 
@@ -850,62 +905,66 @@ Private Function GetOneDriveWebPath(ByVal odLocalPath As String _
                                   , ByVal rebuildCache As Boolean) As String
     If InStr(1, odLocalPath, ":\", vbTextCompare) <> 2 Then Exit Function
     '
-    Dim collLocalPaths As Collection
-    Dim collWebPaths As Collection
     Dim localPath As Variant
     Dim tempPath As String
     Dim rPart As String
-    Dim bestMatch As String
+    Dim bestMatch As Long
+    Dim i As Long
     '
     odLocalPath = FixPathSeparators(odLocalPath)
-    PopulatePaths collLocalPaths, collWebPaths, rebuildCache
-    For Each localPath In collLocalPaths
+    If rebuildCache Or Not m_providers.isSet Then ReadProviders
+    For i = 1 To m_providers.pCount
+        localPath = m_providers.arr(i).mountPoint
         tempPath = Left$(odLocalPath, Len(localPath))
         If StrComp(tempPath, localPath, vbTextCompare) = 0 Then
-            If LenB(localPath) > LenB(bestMatch) Then bestMatch = localPath
+            If bestMatch = 0 Then
+                bestMatch = i
+            ElseIf Len(localPath) > Len(m_providers.arr(bestMatch).mountPoint) _
+            Then
+                bestMatch = i
+            End If
         End If
-    Next localPath
-    If LenB(bestMatch) = 0 Then Exit Function
+    Next i
+    If bestMatch = 0 Then Exit Function
     '
-    rPart = Replace(Mid$(odLocalPath, Len(bestMatch) + 1), "\", "/")
-    GetOneDriveWebPath = collWebPaths(bestMatch) & rPart
+    With m_providers.arr(bestMatch)
+        rPart = Replace(Mid$(odLocalPath, Len(.mountPoint) + 1), "\", "/")
+        GetOneDriveWebPath = .fullWebPath & rPart
+    End With
 End Function
 #End If
 
 '*******************************************************************************
 'Utility for 'GetOneDriveLocalPath' and 'GetOneDriveWebPath'
 '*******************************************************************************
-Private Sub PopulatePaths(ByRef collLocal As Collection _
-                        , ByRef collWeb As Collection _
-                        , ByVal rebuildCache As Boolean)
-    Static collLocalPaths As Collection
-    Static collWebPaths As Collection
+Private Sub ReadProviders()
     Dim folderPath As Variant
     Dim folderName As String
     Dim appPath As String
-    Dim redo As Boolean: redo = rebuildCache Or collLocalPaths Is Nothing
     '
-    If redo Then
-        Set collLocalPaths = New Collection
-        Set collWebPaths = New Collection
-    End If
-    Set collLocal = collLocalPaths
-    Set collWeb = collWebPaths
-    If Not redo Then Exit Sub
+    m_providers.pCount = 0
     '
     appPath = BuildPath(Environ$("LOCALAPPDATA"), "Microsoft\OneDrive\settings\")
     For Each folderPath In GetFolders(appPath)
         folderName = Right$(folderPath, Len(folderPath) - Len(appPath))
         If folderName Like "Business*" Then
-            AddBusinessPaths folderPath, collLocalPaths, collWebPaths
+            AddBusinessPaths folderPath
         ElseIf folderName = "Personal" Then
-            AddPersonalPaths folderPath, collLocalPaths, collWebPaths
+            AddPersonalPaths folderPath
         End If
     Next folderPath
+    m_providers.isSet = True
 End Sub
-Private Sub AddBusinessPaths(ByVal folderPath As String _
-                           , ByVal collLocalPaths As Collection _
-                           , ByVal collWebPaths As Collection)
+Private Function AddProvider() As Long
+    If m_providers.pCount = 0 Then
+        ReDim m_providers.arr(1 To 1)
+    Else
+        ReDim Preserve m_providers.arr(1 To m_providers.pCount + 1)
+    End If
+    m_providers.pCount = m_providers.pCount + 1
+    AddProvider = m_providers.pCount
+End Function
+Private Sub AddBusinessPaths(ByVal folderPath As String)
     Const businessIniMask As String = "????????-????-????-????-????????????.ini"
     Dim iniName As String: iniName = Dir(BuildPath(folderPath, businessIniMask))
     If LenB(iniName) = 0 Then Exit Sub
@@ -918,6 +977,7 @@ Private Sub AddBusinessPaths(ByVal folderPath As String _
     Dim tempMount As String
     Dim mainMount As String
     Dim tempURL As String
+    Dim fullURL As String
     Dim cFolders As Collection
     Dim cParents As Collection
     Dim cPending As New Collection
@@ -936,6 +996,7 @@ Private Sub AddBusinessPaths(ByVal folderPath As String _
                 temp = Split(parts(8), " ")
                 tempURL = GetUrlNamespace(folderPath, "_" & temp(3) & temp(1))
             End If
+            fullURL = tempURL
             If Not canAdd Then cPending.Add tempURL, Split(parts(0), " ")(2)
         Case "libraryFolder "
             If cFolders Is Nothing Then
@@ -953,22 +1014,41 @@ Private Sub AddBusinessPaths(ByVal folderPath As String _
             Loop Until Err.Number <> 0
             On Error GoTo 0
             canAdd = (LenB(tempFolder) > 0)
-            tempURL = tempURL & tempFolder
+            fullURL = tempURL & tempFolder
         Case "AddedScope "
-            If cFolders Is Nothing Then Set cFolders = GetODFolders(datPath)
-            tempMount = mainMount & "\" & cFolders(Split(parts(0), " ")(3))
-            tempURL = parts(5)
+            If cFolders Is Nothing Then
+                Set cFolders = GetODFolders(datPath, cParents)
+            End If
+            tempID = Split(parts(0), " ")(3)
+            tempFolder = vbNullString
+            On Error Resume Next
+            Do
+                tempFolder = cFolders(tempID) & "\" & tempFolder
+                tempID = cParents(tempID)
+            Loop Until Err.Number <> 0
+            On Error GoTo 0
+            tempMount = mainMount & "\" & tempFolder
+            fullURL = parts(5)
+            If fullURL = " " Or LenB(fullURL) = 0 Then
+                fullURL = vbNullString
+            Else
+                fullURL = fullURL & "/"
+            End If
             temp = Split(parts(4), " ")
-            tempURL = GetUrlNamespace(folderPath, "_" & temp(3) & temp(1) _
-                                                      & temp(4)) & tempURL & "/"
+            tempURL = GetUrlNamespace(folderPath, "_" & temp(3) & temp(1) & temp(4))
+            fullURL = tempURL & fullURL
             canAdd = True
         Case Else
             Exit For
         End Select
         If canAdd Then
-            tempMount = BuildPath(tempMount, vbNullString)
-            collLocalPaths.Add tempMount, tempURL
-            collWebPaths.Add tempURL, tempMount
+            With m_providers.arr(AddProvider())
+                .urlNamespace = tempURL
+                .fullWebPath = fullURL
+                .mountPoint = BuildPath(tempMount, vbNullString)
+                .isBusiness = True
+                .isMain = (tempMount = mainMount)
+            End With
         End If
     Next lineText
 End Sub
@@ -986,9 +1066,7 @@ Private Function GetUrlNamespace(ByVal folderPath As String _
         End If
     Next lineText
 End Function
-Private Sub AddPersonalPaths(ByVal folderPath As String _
-                           , ByVal collLocalPaths As Collection _
-                           , ByVal collWebPaths As Collection)
+Private Sub AddPersonalPaths(ByVal folderPath As String)
     Dim datName As String: datName = Dir(BuildPath(folderPath, "*.dat"))
     Dim iniPath As String
     Do
@@ -1010,8 +1088,10 @@ Private Sub AddPersonalPaths(ByVal folderPath As String _
             Exit For
         End If
     Next lineText
-    collLocalPaths.Add mainMount, tempURL
-    collWebPaths.Add tempURL, mainMount
+    With m_providers.arr(AddProvider())
+        .fullWebPath = tempURL
+        .mountPoint = mainMount
+    End With
     '
     Dim groupPath As String
     Dim i As Long
@@ -1038,10 +1118,10 @@ Private Sub AddPersonalPaths(ByVal folderPath As String _
                     Set cFolders = GetODFolders(Replace(iniPath, ".ini", ".dat"))
                 End If
                 If cFolders.Count > 0 Then
-                    tempMount = mainMount & cFolders(folderID) & "\"
-                    tempURL = mainURL & cid & "/" & relPath & "/"
-                    collLocalPaths.Add tempMount, tempURL
-                    collWebPaths.Add tempURL, tempMount
+                    With m_providers.arr(AddProvider())
+                        .fullWebPath = mainURL & cid & "/" & relPath & "/"
+                        .mountPoint = mainMount & cFolders(folderID) & "\"
+                    End With
                 End If
             End If
         End If
@@ -1113,8 +1193,13 @@ Private Sub ReadBytes(ByVal filePath As String, ByRef result() As Byte)
     Dim mustDelete As Boolean: mustDelete = Not IsFile(filePath)
     '
     Open filePath For Binary Access Read As #fileNumber
-    ReDim result(0 To LOF(fileNumber) - 1)
-    Get fileNumber, , result
+    Dim size As Long: size = LOF(fileNumber)
+    If size > 0 Then
+        ReDim result(0 To size - 1)
+        Get fileNumber, , result
+    Else
+        Erase result
+    End If
     Close #fileNumber
     '
     If mustDelete Then DeleteFile filePath
