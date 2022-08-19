@@ -89,6 +89,7 @@ Private Type ONEDRIVE_PROVIDER
     mountPoint As String
     isBusiness As Boolean
     isMain As Boolean
+    accountIndex As Long
 End Type
 Private Type ONEDRIVE_PROVIDERS
     arr() As ONEDRIVE_PROVIDER
@@ -840,7 +841,7 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
     Dim rPart As String
     Dim collMatches As New Collection
     Dim bestMatch As Long
-    Dim mainMount As String
+    Dim mainIndex As Long
     Dim i As Long
     '
     If rebuildCache Or Not m_providers.isSet Then ReadProviders
@@ -849,7 +850,7 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
             If StrCompLeft(odWebPath, .webPath, vbTextCompare) = 0 Then
                 collMatches.Add i
                 If Not .isBusiness Then Exit For
-                If .isMain Then mainMount = .mountPoint
+                If .isMain Then mainIndex = .accountIndex
             End If
         End With
     Next i
@@ -874,7 +875,7 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
                         Else
                             If IsBetterMatch(m_providers.arr(bestMatch) _
                                            , m_providers.arr(v) _
-                                           , mainMount) Then
+                                           , mainIndex) Then
                                 bestMatch = v
                             End If
                         End If
@@ -900,14 +901,11 @@ Private Function StrCompLeft(ByRef s1 As String _
 End Function
 Private Function IsBetterMatch(ByRef lastProvider As ONEDRIVE_PROVIDER _
                              , ByRef currProvider As ONEDRIVE_PROVIDER _
-                             , ByRef mainMount As String) As Boolean
+                             , ByRef mainIndex As Long) As Boolean
     If lastProvider.isMain Then Exit Function
     '
-    Dim isLastOnMain As Boolean
-    Dim isCurrOnMain As Boolean
-    '
-    isLastOnMain = (StrCompLeft(lastProvider.mountPoint, mainMount, vbTextCompare) = 0)
-    isCurrOnMain = (StrCompLeft(currProvider.mountPoint, mainMount, vbTextCompare) = 0)
+    Dim isLastOnMain As Boolean: isLastOnMain = (lastProvider.accountIndex = mainIndex)
+    Dim isCurrOnMain As Boolean: isCurrOnMain = (currProvider.accountIndex = mainIndex)
     '
     If isLastOnMain Xor isCurrOnMain Then
         IsBetterMatch = isCurrOnMain
@@ -994,12 +992,14 @@ Private Sub AddBusinessPaths(ByVal folderPath As String)
     Dim temp() As String
     Dim tempMount As String
     Dim mainMount As String
+    Dim accountIndex As Long
     Dim tempURL As String
     Dim cFolders As Collection
     Dim cParents As Collection
     Dim cPending As New Collection
     Dim canAdd As Boolean
     '
+    accountIndex = CLng(Mid$(folderPath, InStrRev(folderPath, "Business") + 8))
     For Each lineText In Split(bytes, vbNewLine)
         Dim parts() As String: parts = Split(lineText, """")
         Select Case Left$(lineText, InStr(1, lineText, " "))
@@ -1063,6 +1063,7 @@ Private Sub AddBusinessPaths(ByVal folderPath As String)
                 .mountPoint = BuildPath(tempMount, vbNullString)
                 .isBusiness = True
                 .isMain = (tempMount = mainMount)
+                .accountIndex = accountIndex
             End With
         End If
     Next lineText
