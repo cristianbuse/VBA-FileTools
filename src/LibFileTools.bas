@@ -85,8 +85,7 @@ Private Type DRIVE_INFO
 End Type
 
 Private Type ONEDRIVE_PROVIDER
-    urlNamespace As String
-    fullWebPath As String
+    webPath As String
     mountPoint As String
     isBusiness As Boolean
     isMain As Boolean
@@ -838,7 +837,6 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
                                    , ByVal rebuildCache As Boolean) As String
     If InStr(1, odWebPath, "https://", vbTextCompare) <> 1 Then Exit Function
     '
-    Dim webPath As Variant
     Dim tempPath As String
     Dim rPart As String
     Dim collMatches As New Collection
@@ -848,13 +846,8 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
     If rebuildCache Or Not m_providers.isSet Then ReadProviders
     For i = 1 To m_providers.pCount
         With m_providers.arr(i)
-            If .isBusiness Then
-                webPath = .urlNamespace
-            Else
-                webPath = .fullWebPath
-            End If
-            tempPath = Left$(odWebPath, Len(webPath))
-            If StrComp(tempPath, webPath, vbTextCompare) = 0 Then
+            tempPath = Left$(odWebPath, Len(.webPath))
+            If StrComp(tempPath, .webPath, vbTextCompare) = 0 Then
                 collMatches.Add i
                 If Not .isBusiness Then Exit For
             End If
@@ -866,20 +859,21 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
     Case 1: bestMatch = collMatches(1)
     Case Else
         Dim pos As Long: pos = Len(odWebPath) + 1
+        Dim webPath As Variant
         Dim v As Variant
         Do
             pos = InStrRev(odWebPath, "/", pos - 1)
             tempPath = Left$(odWebPath, pos)
             For Each v In collMatches
                 With m_providers.arr(v)
-                    rPart = Mid$(tempPath, Len(.fullWebPath) + 1)
+                    rPart = Mid$(tempPath, Len(.webPath) + 1)
                     If IsFolder(BuildPath(.mountPoint, rPart)) Then
                         If bestMatch = 0 Or .isMain Then
                             bestMatch = v
                         Else
-                            webPath = .fullWebPath
+                            webPath = .webPath
                             With m_providers.arr(bestMatch)
-                                If Len(webPath) > Len(.fullWebPath) Then
+                                If Len(webPath) > Len(.webPath) Then
                                     If Not .isMain Then bestMatch = v
                                 End If
                             End With
@@ -890,7 +884,7 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
         Loop Until bestMatch > 0
     End Select
     With m_providers.arr(bestMatch)
-        rPart = Mid$(odWebPath, Len(.fullWebPath) + 1)
+        rPart = Mid$(odWebPath, Len(.webPath) + 1)
         GetOneDriveLocalPath = BuildPath(.mountPoint, rPart)
     End With
 End Function
@@ -929,7 +923,7 @@ Private Function GetOneDriveWebPath(ByVal odLocalPath As String _
     '
     With m_providers.arr(bestMatch)
         rPart = Replace(Mid$(odLocalPath, Len(.mountPoint) + 1), "\", "/")
-        GetOneDriveWebPath = .fullWebPath & rPart
+        GetOneDriveWebPath = .webPath & rPart
     End With
 End Function
 #End If
@@ -977,7 +971,6 @@ Private Sub AddBusinessPaths(ByVal folderPath As String)
     Dim tempMount As String
     Dim mainMount As String
     Dim tempURL As String
-    Dim fullURL As String
     Dim cFolders As Collection
     Dim cParents As Collection
     Dim cPending As New Collection
@@ -996,7 +989,6 @@ Private Sub AddBusinessPaths(ByVal folderPath As String)
                 temp = Split(parts(8), " ")
                 tempURL = GetUrlNamespace(folderPath, "_" & temp(3) & temp(1))
             End If
-            fullURL = tempURL
             If Not canAdd Then cPending.Add tempURL, Split(parts(0), " ")(2)
         Case "libraryFolder "
             If cFolders Is Nothing Then
@@ -1014,7 +1006,7 @@ Private Sub AddBusinessPaths(ByVal folderPath As String)
             Loop Until Err.Number <> 0
             On Error GoTo 0
             canAdd = (LenB(tempFolder) > 0)
-            fullURL = tempURL & tempFolder
+            tempURL = tempURL & tempFolder
         Case "AddedScope "
             If cFolders Is Nothing Then
                 Set cFolders = GetODFolders(datPath, cParents)
@@ -1028,23 +1020,22 @@ Private Sub AddBusinessPaths(ByVal folderPath As String)
             Loop Until Err.Number <> 0
             On Error GoTo 0
             tempMount = mainMount & "\" & tempFolder
-            fullURL = parts(5)
-            If fullURL = " " Or LenB(fullURL) = 0 Then
-                fullURL = vbNullString
+            tempURL = parts(5)
+            If tempURL = " " Or LenB(tempURL) = 0 Then
+                tempURL = vbNullString
             Else
-                fullURL = fullURL & "/"
+                tempURL = tempURL & "/"
             End If
             temp = Split(parts(4), " ")
-            tempURL = GetUrlNamespace(folderPath, "_" & temp(3) & temp(1) & temp(4))
-            fullURL = tempURL & fullURL
+            tempURL = GetUrlNamespace(folderPath, "_" & temp(3) & temp(1) _
+                                                      & temp(4)) & tempURL
             canAdd = True
         Case Else
             Exit For
         End Select
         If canAdd Then
             With m_providers.arr(AddProvider())
-                .urlNamespace = tempURL
-                .fullWebPath = fullURL
+                .webPath = tempURL
                 .mountPoint = BuildPath(tempMount, vbNullString)
                 .isBusiness = True
                 .isMain = (tempMount = mainMount)
@@ -1089,7 +1080,7 @@ Private Sub AddPersonalPaths(ByVal folderPath As String)
         End If
     Next lineText
     With m_providers.arr(AddProvider())
-        .fullWebPath = tempURL
+        .webPath = tempURL
         .mountPoint = mainMount
     End With
     '
@@ -1119,7 +1110,7 @@ Private Sub AddPersonalPaths(ByVal folderPath As String)
                 End If
                 If cFolders.Count > 0 Then
                     With m_providers.arr(AddProvider())
-                        .fullWebPath = mainURL & cid & "/" & relPath & "/"
+                        .webPath = mainURL & cid & "/" & relPath & "/"
                         .mountPoint = mainMount & cFolders(folderID) & "\"
                     End With
                 End If
