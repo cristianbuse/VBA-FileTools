@@ -54,6 +54,7 @@ Attribute VB_Name = "LibFileTools"
 ''    - GetWebPath        (Windows only)
 ''    - IsFile
 ''    - IsFolder
+''    - IsFolderEditable
 ''    - MoveFile
 ''    - MoveFolder
 ''    - PathSeparator
@@ -838,7 +839,6 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
                                    , ByVal rebuildCache As Boolean) As String
     If InStr(1, odWebPath, "https://", vbTextCompare) <> 1 Then Exit Function
     '
-    Dim rPart As String
     Dim collMatches As New Collection
     Dim bestMatch As Long
     Dim mainIndex As Long
@@ -862,6 +862,8 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
         Dim pos As Long: pos = Len(odWebPath) + 1
         Dim tempPath As String
         Dim webPath As String
+        Dim rPart As String
+        Dim localPath As String
         Dim v As Variant
         Do
             pos = InStrRev(odWebPath, "/", pos - 1)
@@ -869,13 +871,15 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
             For Each v In collMatches
                 With m_providers.arr(v)
                     rPart = Mid$(tempPath, Len(.webPath) + 1)
-                    If IsFolder(BuildPath(.mountPoint, rPart)) Then
+                    localPath = BuildPath(.mountPoint, rPart)
+                    If IsFolder(localPath) Then
                         If bestMatch = 0 Or .isMain Then
                             bestMatch = v
                         Else
                             If IsBetterMatch(m_providers.arr(bestMatch) _
                                            , m_providers.arr(v) _
-                                           , mainIndex) Then
+                                           , mainIndex _
+                                           , localPath) Then
                                 bestMatch = v
                             End If
                         End If
@@ -901,7 +905,8 @@ Private Function StrCompLeft(ByRef s1 As String _
 End Function
 Private Function IsBetterMatch(ByRef lastProvider As ONEDRIVE_PROVIDER _
                              , ByRef currProvider As ONEDRIVE_PROVIDER _
-                             , ByRef mainIndex As Long) As Boolean
+                             , ByRef mainIndex As Long _
+                             , ByRef localPath As String) As Boolean
     If lastProvider.isMain Then Exit Function
     '
     Dim isLastOnMain As Boolean: isLastOnMain = (lastProvider.accountIndex = mainIndex)
@@ -909,8 +914,8 @@ Private Function IsBetterMatch(ByRef lastProvider As ONEDRIVE_PROVIDER _
     '
     If isLastOnMain Xor isCurrOnMain Then
         IsBetterMatch = isCurrOnMain
-    ElseIf Len(currProvider.webPath) > Len(lastProvider.webPath) Then
-        IsBetterMatch = True
+    Else
+        IsBetterMatch = IsFolderEditable(localPath)
     End If
 End Function
 
@@ -1240,6 +1245,24 @@ End Function
 Public Function IsFolder(ByVal folderPath As String) As Boolean
     On Error Resume Next
     IsFolder = ((GetAttr(folderPath) And vbDirectory) = vbDirectory)
+    On Error GoTo 0
+End Function
+
+'*******************************************************************************
+'Checks if the contents of a folder can be edited
+'*******************************************************************************
+Public Function IsFolderEditable(ByVal folderPath As String) As Boolean
+    Dim tempFolder As String
+    '
+    folderPath = BuildPath(folderPath, vbNullString)
+    Do
+        tempFolder = folderPath & Rnd()
+    Loop Until Not IsFolder(tempFolder)
+    '
+    On Error Resume Next
+    MkDir tempFolder
+    If Err.Number = 0 Then RmDir tempFolder
+    IsFolderEditable = (Err.Number = 0)
     On Error GoTo 0
 End Function
 

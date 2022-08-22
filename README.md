@@ -31,6 +31,7 @@ Public/Exposed methods:
  - GetWebPath        (Windows only)
  - IsFile
  - IsFolder
+ - IsFolderEditable
  - MoveFile
  - MoveFolder
  - PathSeparator
