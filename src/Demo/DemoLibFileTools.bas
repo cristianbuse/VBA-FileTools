@@ -88,7 +88,7 @@ Public Sub DemoMain()
     Dim subFolder As String
     '
     For i = 1 To 7
-        subFolder = subFolder & i & GetPathSeparator()
+        subFolder = subFolder & i & PathSeparator()
         For j = 1 To i
             filePath = Replace(demoFile, "demo.txt", subFolder & j & ".txt")
             If CopyFile(demoFile, filePath) Then
@@ -192,7 +192,7 @@ Public Sub DemoMain()
     #End If
     '
     'GetPathSeparator
-    Debug.Print "The path separator is: " & GetPathSeparator()
+    Debug.Print "The path separator is: " & PathSeparator()
     Debug.Print
     '
     'IsFile
