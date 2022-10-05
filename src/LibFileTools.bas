@@ -1091,10 +1091,10 @@ Private Sub AddPersonalPaths(ByVal folderPath As String)
     Dim datName As String: datName = Dir(BuildPath(folderPath, "*.dat"))
     Dim iniPath As String
     Do
+        If LenB(datName) = 0 Then Exit Sub
         iniPath = BuildPath(folderPath, Replace(datName, ".dat", ".ini"))
         If IsFile(iniPath) Then Exit Do
         datName = Dir
-        If LenB(datName) = 0 Then Exit Sub
     Loop
     Dim mainURL As String: mainURL = GetUrlNamespace(folderPath) & "/"
     Dim cid As String:     cid = Replace(datName, ".dat", vbNullString)
