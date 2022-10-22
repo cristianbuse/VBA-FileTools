@@ -2,6 +2,8 @@
 
 FileTools is a small VBA library that is useful for interacting with the file system.
 
+See relevant [SO Answer](https://stackoverflow.com/a/73577057/8488913) written by [@guwidoe](https://github.com/guwidoe) / [SO](https://stackoverflow.com/users/12287457/gwd). See his contributions in [#1](https://github.com/cristianbuse/VBA-FileTools/issues/1) and [#2](https://github.com/cristianbuse/VBA-FileTools/issues/2). Many thanks to him!
+
 ## Installation
 
 Just import the following code module in your VBA Project:
@@ -41,9 +43,6 @@ Public/Exposed methods:
 * Works in any host Application (Excel, Word, AutoCAD etc.)
 * Works on both Windows and Mac. On Mac, 5 of the methods are not available out of which the ```GetLocalPath``` and ```GetUNCPath``` are not needed as all paths are local on a Mac (network shares are mounted as volumes and OneDrive paths work locally anyway)
 * Works in both x32 and x64 application environments
-
-## Contributions
-Many thanks to [@guwidoe](https://github.com/guwidoe) / [SO](https://stackoverflow.com/users/12287457/gwd). See his contributions in [#1](https://github.com/cristianbuse/VBA-FileTools/issues/1).
 
 ## License
 MIT License
