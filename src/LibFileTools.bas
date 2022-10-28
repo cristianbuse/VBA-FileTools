@@ -58,6 +58,7 @@ Attribute VB_Name = "LibFileTools"
 ''    - MoveFile
 ''    - MoveFolder
 ''    - PathSeparator
+''    - ReadBytes
 '*******************************************************************************
 
 Option Explicit
@@ -1207,26 +1208,6 @@ Private Function Clamp(ByVal v As Long, ByVal lowB As Long, uppB As Long) As Lon
 End Function
 
 '*******************************************************************************
-'Utility - Reads a file into an array of Bytes
-'*******************************************************************************
-Private Sub ReadBytes(ByVal filePath As String, ByRef result() As Byte)
-    Dim fileNumber As Long: fileNumber = FreeFile()
-    Dim mustDelete As Boolean: mustDelete = Not IsFile(filePath)
-    '
-    Open filePath For Binary Access Read As #fileNumber
-    Dim size As Long: size = LOF(fileNumber)
-    If size > 0 Then
-        ReDim result(0 To size - 1)
-        Get fileNumber, , result
-    Else
-        Erase result
-    End If
-    Close #fileNumber
-    '
-    If mustDelete Then DeleteFile filePath
-End Sub
-
-'*******************************************************************************
 'Checks if a path indicates a file path
 'Note that if C:\Test\1.txt is valid then C:\Test\\///1.txt will also be valid
 'Most VBA methods consider valid any path separators with multiple characters
@@ -1364,3 +1345,25 @@ Public Function PathSeparator() As String
     End If
     PathSeparator = pSeparator
 End Function
+
+'*******************************************************************************
+'Reads a file into an array of Bytes
+'*******************************************************************************
+Public Sub ReadBytes(ByVal filePath As String, ByRef result() As Byte)
+    If Not IsFile(filePath) Then
+        Erase result
+        Exit Sub
+    End If
+    '
+    Dim fileNumber As Long: fileNumber = FreeFile()
+    '
+    Open filePath For Binary Access Read As #fileNumber
+    Dim size As Long: size = LOF(fileNumber)
+    If size > 0 Then
+        ReDim result(0 To size - 1)
+        Get fileNumber, , result
+    Else
+        Erase result
+    End If
+    Close #fileNumber
+End Sub
