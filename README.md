@@ -37,6 +37,7 @@ Public/Exposed methods:
  - MoveFile
  - MoveFolder
  - PathSeparator
+ - ReadBytes
 
 ## Notes
 * No extra library references are needed (e.g. Microsoft Scripting Runtime)
