@@ -294,7 +294,12 @@ Public Function CreateFolder(ByVal folderPath As String _
     Loop
     On Error Resume Next
     For i = collFoldersToCreate.Count To 1 Step -1
-        MkDir collFoldersToCreate(i)
+        'MkDir does not support all Unicode characters, unlike FSO
+        #If Mac Then
+            MkDir collFoldersToCreate(i)
+        #Else
+            GetFileSystemObject.CreateFolder collFoldersToCreate(i)
+        #End If
         If Err.Number <> 0 Then Exit For
     Next i
     CreateFolder = (Err.Number = 0)
