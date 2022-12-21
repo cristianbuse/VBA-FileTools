@@ -1160,9 +1160,6 @@ End Sub
 '*******************************************************************************
 Private Function GetODFolders(ByVal filePath As String _
                             , Optional ByRef outParents As Collection) As Collection
-    Dim b() As Byte:  ReadBytes filePath, b
-    Dim s As String:  s = b
-    Dim size As Long: size = LenB(s): If size = 0 Then Exit Function
     Dim i As Long
     Dim v As Variant
     Dim cFolders As New Collection
@@ -1174,6 +1171,13 @@ Private Function GetODFolders(ByVal filePath As String _
     Dim vbNullByte As String: vbNullByte = MidB$(vbNullChar, 1, 1)
     Dim hFolder As String:    hFolder = StrConv(Chr$(&H2), vbFromUnicode) 'x02
     Dim hCheck As String:     hCheck = ChrW$(&H1) & String(3, vbNullChar) 'x01..
+
+    Dim b() As Byte: ReDim b(0 To 1): b(0) = &HAB&: b(1) = &HAB&
+    Dim hEndOfFoldername As String: hEndOfFoldername = b
+    hEndOfFoldername = vbNullChar & hEndOfFoldername
+
+    Dim s As String: ReadBytes filePath, b: s = b
+    Dim size As Long: size = LenB(s): If size = 0 Then Exit Function
     '
     If outParents Is Nothing Then Set outParents = New Collection
     For Each v In Array(16, 8)
@@ -1188,7 +1192,7 @@ Private Function GetODFolders(ByVal filePath As String _
                 bytes = Clamp(InStrB(i, s, vbNullByte) - i, 0, 39)
                 parentID = StrConv(MidB$(s, i, bytes), vbUnicode)
                 i = i + 121
-                bytes = -Int(-(InStrB(i, s, vbNullChar) - i) / 2) * 2
+                bytes = -Int(-(InStrB(i, s, hEndOfFoldername) - i) / 2) * 2
                 If bytes < 0 Then bytes = 0
                 folderName = MidB$(s, i, bytes)
                 If LenB(folderID) > 0 And LenB(parentID) > 0 Then
