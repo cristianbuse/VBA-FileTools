@@ -1173,8 +1173,8 @@ Private Function GetODFolders(ByVal filePath As String _
     Dim hCheck As String:     hCheck = ChrW$(&H1) & String(3, vbNullChar) 'x01..
 
     Dim b() As Byte: ReDim b(0 To 1): b(0) = &HAB&: b(1) = &HAB&
-    Dim hEndOfFoldername As String: hEndOfFoldername = b
-    hEndOfFoldername = vbNullChar & hEndOfFoldername
+    Dim hEndOfFolderName As String: hEndOfFolderName = b
+    hEndOfFolderName = vbNullChar & hEndOfFolderName
 
     Dim s As String: ReadBytes filePath, b: s = b
     Dim size As Long: size = LenB(s): If size = 0 Then Exit Function
@@ -1192,7 +1192,7 @@ Private Function GetODFolders(ByVal filePath As String _
                 bytes = Clamp(InStrB(i, s, vbNullByte) - i, 0, 39)
                 parentID = StrConv(MidB$(s, i, bytes), vbUnicode)
                 i = i + 121
-                bytes = -Int(-(InStrB(i, s, hEndOfFoldername) - i) / 2) * 2
+                bytes = -Int(-(InStrB(i, s, hEndOfFolderName) - i) / 2) * 2
                 If bytes < 0 Then bytes = 0
                 folderName = MidB$(s, i, bytes)
                 If LenB(folderID) > 0 And LenB(parentID) > 0 Then
