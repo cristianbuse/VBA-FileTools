@@ -1188,7 +1188,7 @@ Private Function GetODFolders(ByVal filePath As String _
                 bytes = Clamp(InStrB(i, s, vbNullByte) - i, 0, 39)
                 parentID = StrConv(MidB$(s, i, bytes), vbUnicode)
                 i = i + 121
-                bytes = -Int(-(InStrB(i, s, vbNullChar) - i) / 2) * 2
+                bytes = InStr(-Int(-(i - 1) / 2) + 1, s, vbNullChar) * 2 - i - 1
                 If bytes < 0 Then bytes = 0
                 folderName = MidB$(s, i, bytes)
                 If LenB(folderID) > 0 And LenB(parentID) > 0 Then
