@@ -57,7 +57,6 @@ Attribute VB_Name = "LibFileTools"
 ''    - IsFolderEditable
 ''    - MoveFile
 ''    - MoveFolder
-''    - PathSeparator
 ''    - ReadBytes
 '*******************************************************************************
 
@@ -187,6 +186,21 @@ End Function
 '*******************************************************************************
 Public Function BuildPath(ByVal folderPath As String _
                         , ByVal fsName As String) As String
+    Const parentFolder As String = ".." & PATH_SEPARATOR
+    '
+    fsName = FixPathSeparators(fsName)
+    If Left$(fsName, 3) = parentFolder Then
+        Dim sepIndex As Long
+        '
+        folderPath = FixPathSeparators(folderPath)
+        Do
+            sepIndex = InStrRev(folderPath, PATH_SEPARATOR, Len(folderPath) - 1)
+            If sepIndex < 3 Then Exit Do
+            '
+            folderPath = Left$(folderPath, sepIndex)
+            fsName = Right$(fsName, Len(fsName) - 3)
+        Loop Until Left$(fsName, 3) <> parentFolder
+    End If
     BuildPath = FixPathSeparators(folderPath & PATH_SEPARATOR & fsName)
 End Function
 
