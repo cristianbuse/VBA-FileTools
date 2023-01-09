@@ -99,6 +99,12 @@ Private Type ONEDRIVE_PROVIDERS
     isSet As Boolean
 End Type
 
+#If Mac Then
+    Public Const PATH_SEPARATOR = "/"
+#Else
+    Public Const PATH_SEPARATOR = "\"
+#End If
+
 Private m_providers As ONEDRIVE_PROVIDERS
 
 '*******************************************************************************
@@ -120,7 +126,7 @@ Public Function BrowseForFiles(Optional ByVal initialPath As String _
     Const actionButton As Long = -1
     '
     With Application.FileDialog(dialogTypeFilePicker)
-        If LenB(dialogTitle) > 0 Then .title = dialogTitle
+        If LenB(dialogTitle) > 0 Then .Title = dialogTitle
         If LenB(initialPath) > 0 Then .InitialFileName = initialPath
         If LenB(.InitialFileName) = 0 Then
             Dim app As Object: Set app = Application 'Needs to be late-binded
@@ -159,7 +165,7 @@ Public Function BrowseForFolder(Optional ByVal initialPath As String _
     Const actionButton As Long = -1
     '
     With Application.FileDialog(dialogTypeFolderPicker)
-        If LenB(dialogTitle) > 0 Then .title = dialogTitle
+        If LenB(dialogTitle) > 0 Then .Title = dialogTitle
         If LenB(initialPath) > 0 Then .InitialFileName = initialPath
         If LenB(.InitialFileName) = 0 Then
             Dim app As Object: Set app = Application 'Needs to be late-binded
@@ -181,7 +187,7 @@ End Function
 '*******************************************************************************
 Public Function BuildPath(ByVal folderPath As String _
                         , ByVal fsName As String) As String
-    BuildPath = FixPathSeparators(folderPath & PathSeparator() & fsName)
+    BuildPath = FixPathSeparators(folderPath & PATH_SEPARATOR & fsName)
 End Function
 
 '*******************************************************************************
@@ -286,7 +292,7 @@ Public Function CreateFolder(ByVal folderPath As String _
     Do
         collFoldersToCreate.Add fullPath
         '
-        sepIndex = InStrRev(fullPath, PathSeparator())
+        sepIndex = InStrRev(fullPath, PATH_SEPARATOR)
         If sepIndex < 3 Then Exit Do
         '
         fullPath = Left$(fullPath, sepIndex - 1)
@@ -502,14 +508,9 @@ End Function
 '   PC where \\share\data\... is a perfectly valid file/folder path
 '*******************************************************************************
 Public Function FixPathSeparators(ByVal pathToFix As String) As String
-    Static oneSeparator As String
-    Static twoSeparators As String
+    Const oneSeparator As String = PATH_SEPARATOR
+    Const twoSeparators As String = PATH_SEPARATOR & PATH_SEPARATOR
     Dim resultPath As String: resultPath = pathToFix
-    '
-    If LenB(oneSeparator) = 0 Then
-        oneSeparator = PathSeparator()
-        twoSeparators = oneSeparator & oneSeparator
-    End If
     '
     #If Mac = 0 Then 'Replace forward slashes with back slashes for Windows
         resultPath = Replace(resultPath, "/", oneSeparator)
@@ -573,7 +574,7 @@ Public Function GetFileOwner(ByVal filePath As String) As String
                       , nameLen, owDomain, domainLen, 0&) = 0 Then Exit Function
     '
     'Return result
-    GetFileOwner = owDomain & PathSeparator() & owName
+    GetFileOwner = owDomain & PATH_SEPARATOR & owName
 End Function
 #End If
 
@@ -821,10 +822,10 @@ Private Function AlignDriveNameIfNeeded(ByVal driveName As String _
                                       , ByVal shareName As String) As String
     Dim sepIndex As Long
     '
-    sepIndex = VBA.InStr(3, driveName, PathSeparator())
+    sepIndex = VBA.InStr(3, driveName, PATH_SEPARATOR)
     If sepIndex > 0 Then
         Dim newName As String: newName = VBA.Left$(driveName, sepIndex - 1)
-        sepIndex = VBA.InStr(3, shareName, PathSeparator())
+        sepIndex = VBA.InStr(3, shareName, PATH_SEPARATOR)
         newName = newName & Right$(shareName, Len(shareName) - sepIndex + 1)
         AlignDriveNameIfNeeded = newName
     Else
@@ -1325,30 +1326,6 @@ Public Function MoveFolder(ByVal sourcePath As String _
     End If
     '
     MoveFolder = True
-End Function
-
-'*******************************************************************************
-'Returns the path separator character. Encapsulates Application.PathSeparator
-'*******************************************************************************
-Public Function PathSeparator() As String
-    Static pSeparator As String
-    Static isSet As Boolean
-    '
-    If Not isSet Then
-        Dim app As Object: Set app = Application 'Needs to be late-binded
-        On Error Resume Next
-        pSeparator = app.PathSeparator
-        If Err.Number <> 0 Then
-            #If Mac Then
-                pSeparator = "/"
-            #Else
-                pSeparator = "\"
-            #End If
-        End If
-        On Error GoTo 0
-        isSet = True
-    End If
-    PathSeparator = pSeparator
 End Function
 
 '*******************************************************************************
