@@ -568,8 +568,8 @@ Public Function GetFileOwner(ByVal filePath As String) As String
     End If
     '
     'Get owner SSID
-        Dim pOwner As LongPtr
     #If VBA7 Then
+        Dim pOwner As LongPtr
     #Else
         Dim pOwner As Long
     #End If
