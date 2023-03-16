@@ -1175,47 +1175,81 @@ End Sub
 '*******************************************************************************
 Private Function GetODFolders(ByVal filePath As String _
                             , Optional ByRef outParents As Collection) As Collection
-    Dim b() As Byte:  ReadBytes filePath, b
-    Dim s As String:  s = b
-    Dim size As Long: size = LenB(s): If size = 0 Then Exit Function
+    If Not IsFile(filePath) Then Exit Function
+    '
+    Dim fileNumber As Long: fileNumber = FreeFile()
+    '
+    Open filePath For Binary Access Read As #fileNumber
+    Dim size As Long: size = LOF(fileNumber)
+    If size = 0 Then GoTo CloseFile
+    '
+    Const hCheckSize As Long = 8
+    Const idSize As Long = 39
+    Const fNameOffset As Long = 121
+    Const checkToName As Long = hCheckSize + idSize + fNameOffset + fNameOffset
+    '
+    Const chunkSize As Long = &H100000 '1MB
+    Dim b(1 To chunkSize) As Byte
+    Dim s As String
+    Dim lastRecord As Long
     Dim i As Long
-    Dim v As Variant
-    Dim cFolders As New Collection
+    Dim cFolders As Collection
     Dim stepSize As Long
     Dim bytes As Long
     Dim folderID As String
     Dim parentID As String
     Dim folderName As String
-    Dim vbNullByte As String: vbNullByte = MidB$(vbNullChar, 1, 1)
-    Dim hFolder As String:    hFolder = StrConv(Chr$(&H2), vbFromUnicode) 'x02
-    Dim hCheck As String:     hCheck = ChrW$(&H1) & String(3, vbNullChar) 'x01..
+    Dim lastFileChange As Date
+    Dim currFileChange As Date
+    Dim vbNullByte As String:   vbNullByte = MidB$(vbNullChar, 1, 1)
+    Dim hFolder As String:      hFolder = StrConv(Chr$(&H2), vbFromUnicode) 'x02
+    Dim hCheck As String:       hCheck = ChrW$(&H1) & String(3, vbNullChar) 'x01..
     '
-    If outParents Is Nothing Then Set outParents = New Collection
-    For Each v In Array(16, 8)
-        stepSize = v
-        i = InStrB(stepSize, s, hCheck)
-        Do While i > stepSize And i < size - 168
-            If MidB$(s, i - stepSize, 1) = hFolder Then
-                i = i + 8
-                bytes = Clamp(InStrB(i, s, vbNullByte) - i, 0, 39)
-                folderID = StrConv(MidB$(s, i, bytes), vbUnicode)
-                i = i + 39
-                bytes = Clamp(InStrB(i, s, vbNullByte) - i, 0, 39)
-                parentID = StrConv(MidB$(s, i, bytes), vbUnicode)
-                i = i + 121
-                bytes = InStr(-Int(-(i - 1) / 2) + 1, s, vbNullChar) * 2 - i - 1
-                If bytes < 0 Then bytes = 0
-                folderName = MidB$(s, i, bytes)
-                If LenB(folderID) > 0 And LenB(parentID) > 0 Then
-                    cFolders.Add folderName, folderID
-                    outParents.Add parentID, folderID
-                End If
+    For stepSize = 16 To 8 Step -8
+        lastFileChange = 0
+        Do
+            i = 0
+            currFileChange = FileDateTime(filePath)
+            If currFileChange > lastFileChange Then
+                Set cFolders = New Collection
+                Set outParents = New Collection
+                lastFileChange = currFileChange
+                lastRecord = 1
             End If
-            i = InStrB(i + 1, s, hCheck)
-        Loop
+            Get fileNumber, lastRecord, b
+            s = b
+            i = InStrB(stepSize, s, hCheck)
+            Do While i > stepSize And i < chunkSize - checkToName
+                If MidB$(s, i - stepSize, 1) = hFolder Then
+                    i = i + hCheckSize
+                    bytes = Clamp(InStrB(i, s, vbNullByte) - i, 0, idSize)
+                    folderID = StrConv(MidB$(s, i, bytes), vbUnicode)
+                    i = i + idSize
+                    bytes = Clamp(InStrB(i, s, vbNullByte) - i, 0, idSize)
+                    parentID = StrConv(MidB$(s, i, bytes), vbUnicode)
+                    i = i + fNameOffset
+                    bytes = InStr(-Int(-(i - 1) / 2) + 1, s, vbNullChar) * 2 - i - 1
+                    bytes = bytes + bytes Mod 2
+                    If bytes < 0 Or i + bytes - 1 > chunkSize Then 'Read next chunk
+                        i = i - checkToName
+                        Exit Do
+                    End If
+                    folderName = MidB$(s, i, bytes)
+                    If LenB(folderID) > 0 And LenB(parentID) > 0 Then
+                        cFolders.Add folderName, folderID
+                        outParents.Add parentID, folderID
+                    End If
+                End If
+                i = InStrB(i + 1, s, hCheck)
+            Loop
+            lastRecord = lastRecord + chunkSize - stepSize
+            If i > stepSize Then lastRecord = lastRecord - chunkSize + i - 1
+        Loop Until lastRecord > size
         If cFolders.Count > 0 Then Exit For
-    Next v
+    Next stepSize
     Set GetODFolders = cFolders
+CloseFile:
+    Close #fileNumber
 End Function
 Private Function Clamp(ByVal v As Long, ByVal lowB As Long, uppB As Long) As Long
     If v < lowB Then
