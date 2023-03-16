@@ -130,8 +130,8 @@ Public Function BrowseForFiles(Optional ByVal initialPath As String _
         If LenB(.InitialFileName) = 0 Then
             Dim app As Object: Set app = Application 'Needs to be late-binded
             Select Case Application.Name
-                Case "Microsoft Excel": .InitialFileName = app.ThisWorkbook.Path
-                Case "Microsoft Word":  .InitialFileName = app.ThisDocument.Path
+                Case "Microsoft Excel": .InitialFileName = GetLocalPath(app.ThisWorkbook.Path)
+                Case "Microsoft Word":  .InitialFileName = GetLocalPath(app.ThisDocument.Path)
             End Select
         End If
         '
@@ -169,8 +169,8 @@ Public Function BrowseForFolder(Optional ByVal initialPath As String _
         If LenB(.InitialFileName) = 0 Then
             Dim app As Object: Set app = Application 'Needs to be late-binded
             Select Case Application.Name
-                Case "Microsoft Excel": .InitialFileName = app.ThisWorkbook.Path
-                Case "Microsoft Word":  .InitialFileName = app.ThisDocument.Path
+                Case "Microsoft Excel": .InitialFileName = GetLocalPath(app.ThisWorkbook.Path)
+                Case "Microsoft Word":  .InitialFileName = GetLocalPath(app.ThisDocument.Path)
             End Select
         End If
         If .Show = actionButton Then
@@ -207,7 +207,7 @@ End Function
 '*******************************************************************************
 'Copies a file. Overwrites existing files unless 'failIfExists' is set to True
 'Note that VBA.FileCopy does not copy opened files on Windows but it does on Mac
-'If the the destination file already exists and 'failIfExists' is set to False
+'If the destination file already exists and 'failIfExists' is set to False
 '   then this method must be able to overwrite the destination file. Rather than
 '   failing and then trying again with attribute set to vbNormal this method
 '   sets the attribute for the destination path to vbNormal before copying.
@@ -225,7 +225,7 @@ Public Function CopyFile(ByVal sourcePath As String _
         If failIfExists Then If IsFile(destinationPath) Then Exit Function
         '
         On Error Resume Next
-        SetAttr destinationPath, vbNormal 'Too costly to do after failing Copy
+        SetAttr destinationPath, vbNormal 'Too costly to do after Copy fails
         Err.Clear 'Ignore any errors raised by 'SetAttr'
         VBA.FileCopy sourcePath, destinationPath 'Copies opened files as well
         CopyFile = (Err.Number = 0)
@@ -233,7 +233,7 @@ Public Function CopyFile(ByVal sourcePath As String _
     #Else
         If Not failIfExists Then
             On Error Resume Next
-            SetAttr destinationPath, vbNormal 'Costly to do after failing Copy
+            SetAttr destinationPath, vbNormal 'Costly to do after Copy fails
             On Error GoTo 0
         End If
         CopyFile = CopyFileA(sourcePath, destinationPath, failIfExists)
@@ -246,7 +246,7 @@ End Function
 '   subFolder already exists (including the main 'destinationPath')
 'If 'ignoreFailedFiles' is set to True then the method continues to copy the
 '   remaining files. This is useful when reverting a 'MoveFolder' call across
-'   different disk drives. Use with care
+'   different disk drives. Use this parameter with care
 '*******************************************************************************
 Public Function CopyFolder(ByVal sourcePath As String _
                          , ByVal destinationPath As String _
@@ -711,7 +711,7 @@ Private Sub AddFoldersTo(ByVal collTarget As Collection _
     Do While folderName <> vbNullString
         If folderName <> currentFolder And folderName <> parentFolder Then
             fullPath = fixedPath & folderName
-            If GetAttr(fullPath) And vbDirectory Then collFolders.Add fullPath
+            If IsFolder(fullPath) Then collFolders.Add fullPath
         End If
         folderName = Dir
     Loop
@@ -1233,19 +1233,42 @@ End Function
 'Most VBA methods consider valid any path separators with multiple characters
 '*******************************************************************************
 Public Function IsFile(ByVal filePath As String) As Boolean
+    Const errBadFileNameOrNumber As Long = 52
+    Dim fAttr As VbFileAttribute
+    '
     On Error Resume Next
-    IsFile = ((GetAttr(filePath) And vbDirectory) <> vbDirectory)
+    fAttr = GetAttr(filePath)
+    If Err.Number = errBadFileNameOrNumber Then 'Unicode characters
+        #If Mac Then
+            
+        #Else
+            IsFile = GetFileSystemObject().FileExists(filePath)
+        #End If
+    ElseIf Err.Number = 0 Then
+        IsFile = Not CBool(fAttr And vbDirectory)
+    End If
     On Error GoTo 0
 End Function
-
 '*******************************************************************************
 'Checks if a path indicates a folder path
 'Note that if C:\Test\Demo is valid then C:\Test\\///Demo will also be valid
 'Most VBA methods consider valid any path separators with multiple characters
 '*******************************************************************************
 Public Function IsFolder(ByVal folderPath As String) As Boolean
+    Const errBadFileNameOrNumber As Long = 52
+    Dim fAttr As VbFileAttribute
+    '
     On Error Resume Next
-    IsFolder = ((GetAttr(folderPath) And vbDirectory) = vbDirectory)
+    fAttr = GetAttr(folderPath)
+    If Err.Number = errBadFileNameOrNumber Then 'Unicode characters
+        #If Mac Then
+            
+        #Else
+            IsFolder = GetFileSystemObject().FolderExists(folderPath)
+        #End If
+    Else
+        IsFolder = CBool(fAttr And vbDirectory)
+    End If
     On Error GoTo 0
 End Function
 
