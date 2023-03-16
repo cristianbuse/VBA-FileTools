@@ -1218,8 +1218,8 @@ Private Function GetODFolders(ByVal filePath As String _
             End If
             Get fileNumber, lastRecord, b
             s = b
-            i = InStrB(stepSize, s, hCheck)
-            Do While i > stepSize And i < chunkSize - checkToName
+            i = InStrB(stepSize + 1, s, hCheck)
+            Do While i > 0 And i < chunkSize - checkToName
                 If MidB$(s, i - stepSize, 1) = hFolder Then
                     i = i + hCheckSize
                     bytes = Clamp(InStrB(i, s, vbNullByte) - i, 0, idSize)
