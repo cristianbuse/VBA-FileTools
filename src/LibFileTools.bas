@@ -49,9 +49,8 @@ Attribute VB_Name = "LibFileTools"
 ''    - GetFileOwner      (Windows only)
 ''    - GetFiles
 ''    - GetFolders
-''    - GetLocalPath      (Windows only)
-''    - GetUNCPath        (Windows only)
-''    - GetWebPath        (Windows only)
+''    - GetLocalPath
+''    - GetRemotePath
 ''    - IsFile
 ''    - IsFolder
 ''    - IsFolderEditable
@@ -63,20 +62,54 @@ Attribute VB_Name = "LibFileTools"
 Option Explicit
 Option Private Module
 
+#Const Windows = (Mac = 0)
+
 #If Mac Then
-#ElseIf VBA7 Then
-    Private Declare PtrSafe Function CopyFileA Lib "kernel32" (ByVal lpExistingFileName As String, ByVal lpNewFileName As String, ByVal bFailIfExists As Long) As Long
-    Private Declare PtrSafe Function DeleteFileA Lib "kernel32" (ByVal lpFileName As String) As Long
-    Private Declare PtrSafe Function GetFileSecurity Lib "advapi32.dll" Alias "GetFileSecurityA" (ByVal lpFileName As String, ByVal RequestedInformation As Long, pSecurityDescriptor As Byte, ByVal nLength As Long, lpnLengthNeeded As Long) As Long
-    Private Declare PtrSafe Function GetSecurityDescriptorOwner Lib "advapi32.dll" (pSecurityDescriptor As Byte, pOwner As LongPtr, lpbOwnerDefaulted As LongPtr) As Long
-    Private Declare PtrSafe Function LookupAccountSid Lib "advapi32.dll" Alias "LookupAccountSidA" (ByVal lpSystemName As String, ByVal Sid As LongPtr, ByVal Name As String, cbName As Long, ByVal ReferencedDomainName As String, cbReferencedDomainName As Long, peUse As LongPtr) As Long
+    #If VBA7 Then 'https://developer.apple.com/library/archive/documentation/System/Conceptual/ManPages_iPhoneOS/man3/iconv.3.html
+        Private Declare PtrSafe Function iconv Lib "/usr/lib/libiconv.dylib" (ByVal cd As LongPtr, ByRef inBuf As LongPtr, ByRef inBytesLeft As LongPtr, ByRef outBuf As LongPtr, ByRef outBytesLeft As LongPtr) As LongPtr
+        Private Declare PtrSafe Function iconv_open Lib "/usr/lib/libiconv.dylib" (ByVal toCode As LongPtr, ByVal fromCode As LongPtr) As LongPtr
+        Private Declare PtrSafe Function iconv_close Lib "/usr/lib/libiconv.dylib" (ByVal cd As LongPtr) As Long
+    #Else
+        Private Declare Function iconv Lib "/usr/lib/libiconv.dylib" (ByVal cd As Long, ByRef inBuf As Long, ByRef inBytesLeft As Long, ByRef outBuf As Long, ByRef outBytesLeft As Long) As Long
+        Private Declare Function iconv_open Lib "/usr/lib/libiconv.dylib" (ByVal toCode As Long, ByVal fromCode As Long) As Long
+        Private Declare Function iconv_close Lib "/usr/lib/libiconv.dylib" (ByVal cd As Long) As Long
+    #End If
 #Else
-    Private Declare Function CopyFileA Lib "kernel32" (ByVal lpExistingFileName As String, ByVal lpNewFileName As String, ByVal bFailIfExists As Long) As Long
-    Private Declare Function DeleteFileA Lib "kernel32" (ByVal lpFileName As String) As Long
-    Private Declare Function GetFileSecurity Lib "advapi32.dll" Alias "GetFileSecurityA" (ByVal lpFileName As String, ByVal RequestedInformation As Long, pSecurityDescriptor As Byte, ByVal nLength As Long, lpnLengthNeeded As Long) As Long
-    Private Declare Function GetSecurityDescriptorOwner Lib "advapi32.dll" (pSecurityDescriptor As Byte, pOwner As Long, lpbOwnerDefaulted As Long) As Long
-    Private Declare Function LookupAccountSid Lib "advapi32.dll" Alias "LookupAccountSidA" (ByVal lpSystemName As String, ByVal Sid As Long, ByVal Name As String, cbName As Long, ByVal ReferencedDomainName As String, cbReferencedDomainName As Long, peUse As Long) As Long
+    #If VBA7 Then
+        Private Declare PtrSafe Function CopyFileA Lib "kernel32" (ByVal lpExistingFileName As String, ByVal lpNewFileName As String, ByVal bFailIfExists As Long) As Long
+        Private Declare PtrSafe Function DeleteFileA Lib "kernel32" (ByVal lpFileName As String) As Long
+        Private Declare PtrSafe Function GetFileSecurity Lib "advapi32.dll" Alias "GetFileSecurityA" (ByVal lpFileName As String, ByVal RequestedInformation As Long, pSecurityDescriptor As Byte, ByVal nLength As Long, lpnLengthNeeded As Long) As Long
+        Private Declare PtrSafe Function GetSecurityDescriptorOwner Lib "advapi32.dll" (pSecurityDescriptor As Byte, pOwner As LongPtr, lpbOwnerDefaulted As LongPtr) As Long
+        Private Declare PtrSafe Function LookupAccountSid Lib "advapi32.dll" Alias "LookupAccountSidA" (ByVal lpSystemName As String, ByVal Sid As LongPtr, ByVal Name As String, cbName As Long, ByVal ReferencedDomainName As String, cbReferencedDomainName As Long, peUse As LongPtr) As Long
+        Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
+        Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpDefaultChar As LongPtr, ByVal lpUsedDefaultChar As LongPtr) As Long
+    #Else
+        Private Declare Function CopyFileA Lib "kernel32" (ByVal lpExistingFileName As String, ByVal lpNewFileName As String, ByVal bFailIfExists As Long) As Long
+        Private Declare Function DeleteFileA Lib "kernel32" (ByVal lpFileName As String) As Long
+        Private Declare Function GetFileSecurity Lib "advapi32.dll" Alias "GetFileSecurityA" (ByVal lpFileName As String, ByVal RequestedInformation As Long, pSecurityDescriptor As Byte, ByVal nLength As Long, lpnLengthNeeded As Long) As Long
+        Private Declare Function GetSecurityDescriptorOwner Lib "advapi32.dll" (pSecurityDescriptor As Byte, pOwner As Long, lpbOwnerDefaulted As Long) As Long
+        Private Declare Function LookupAccountSid Lib "advapi32.dll" Alias "LookupAccountSidA" (ByVal lpSystemName As String, ByVal Sid As Long, ByVal Name As String, cbName As Long, ByVal ReferencedDomainName As String, cbReferencedDomainName As Long, peUse As Long) As Long
+        Private Declare Function MultiByteToWideChar Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpMultiByteStr As Long, ByVal cchMultiByte As Long, ByVal lpWideCharStr As Long, ByVal cchWideChar As Long) As Long
+        Private Declare Function WideCharToMultiByte Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As Long, ByVal cchWideChar As Long, ByVal lpMultiByteStr As Long, ByVal cchMultiByte As Long, ByVal lpDefaultChar As Long, ByVal lpUsedDefaultChar As Long) As Long
+    #End If
 #End If
+
+#If VBA7 = 0 Then
+    Public Enum LongPtr
+        [_]
+    End Enum
+#End If
+
+Public Enum PageCode
+    [_pcCount] = 5
+    codeUTF8 = 65001
+    codeUTF16LE = 1200
+    codeUTF16BE = 1201
+#If Mac Then
+    codeUTF32LE = 12000
+    codeUTF32BE = 12001
+#End If
+End Enum
 
 Private Type DRIVE_INFO
     driveName As String
@@ -98,6 +131,21 @@ Private Type ONEDRIVE_PROVIDERS
     isSet As Boolean
 End Type
 
+Private Type ONEDRIVE_ACCOUNT_INFO
+    accountIndex As Long
+    cID As String
+    datPath As String
+    folderPath As String
+    groupPath As String
+    iniPath As String
+    isPersonal As Boolean
+End Type
+Private Type ONEDRIVE_ACCOUNTS_INFO
+    arr() As ONEDRIVE_ACCOUNT_INFO
+    pCount As Long
+    isSet As Boolean
+End Type
+
 #If Mac Then
     Public Const PATH_SEPARATOR = "/"
 #Else
@@ -105,6 +153,9 @@ End Type
 #End If
 
 Private m_providers As ONEDRIVE_PROVIDERS
+#If Mac Then
+    Private m_conversionDescriptors As New Collection
+#End If
 
 '*******************************************************************************
 'Returns a Collection of file paths by using a FilePicker FileDialog
@@ -156,7 +207,7 @@ End Function
 '*******************************************************************************
 'Returns a folder path by using a FolderPicker FileDialog
 '*******************************************************************************
-#If Mac = 0 Then
+#If Windows Then
 Public Function BrowseForFolder(Optional ByVal initialPath As String _
                               , Optional ByVal dialogTitle As String) As String
     'In case reference to Microsoft Office X.XX Object Library is missing
@@ -463,7 +514,7 @@ End Function
 'Returns a collection of forbidden characters for a file/folder name
 'Ability to add the caret ^ char - forbidden on FAT file systems but not on NTFS
 '*******************************************************************************
-#If Mac = 0 Then
+#If Windows Then
 Private Function ForbiddenNameChars(ByVal addCaret As Boolean) As Collection
     Static collForbiddenChars As Collection
     Static hasCaret As Boolean
@@ -494,7 +545,7 @@ End Function
 '*******************************************************************************
 'Windows file/folder reserved names: com1 to com9, lpt1 to lpt9, con, nul, prn
 '*******************************************************************************
-#If Mac = 0 Then
+#If Windows Then
 Private Function IsReservedName(ByVal nameToCheck As String) As Boolean
     Static collReservedNames As Collection
     '
@@ -540,7 +591,7 @@ Public Function FixPathSeparators(ByVal pathToFix As String) As String
         currentLength = Len(resultPath)
     Loop Until previousLength = currentLength
     '
-    #If Mac = 0 Then
+    #If Windows Then
         If isUNC Then resultPath = oneSeparator & resultPath
     #End If
     '
@@ -550,7 +601,7 @@ End Function
 '*******************************************************************************
 'Retrieves the owner name for a file path
 '*******************************************************************************
-#If Mac = 0 Then
+#If Windows Then
 Public Function GetFileOwner(ByVal filePath As String) As String
     Const osi As Long = 1 'OWNER_SECURITY_INFORMATION
     Dim sdSize As Long
@@ -728,31 +779,34 @@ End Sub
 '*******************************************************************************
 'Returns the local drive path for a given path or null string if path not local
 'Note that the input path does not need to be an existing file/folder
+'Works with both UNC paths (Win) and OneDrive/SharePoint synchronized paths
 '*******************************************************************************
-#If Mac = 0 Then
-Public Function GetLocalPath(ByVal fullPath As String) As String
-    With GetDriveInfo(fullPath)
-        If LenB(.driveLetter) = 0 Then
-            GetLocalPath = GetOneDriveLocalPath(fullPath, rebuildCache:=False)
-        Else
-            GetLocalPath = FixPathSeparators(Replace(fullPath _
-            , .driveName, .driveLetter & ":", 1, 1, vbTextCompare))
-            Exit Function
+Public Function GetLocalPath(ByRef fullPath As String _
+                           , Optional ByVal rebuildCache As Boolean = False) As String
+    #If Windows Then
+        If InStr(1, fullPath, "https://", vbTextCompare) <> 1 Then
+            With GetDriveInfo(fullPath)
+                If LenB(.driveLetter) > 0 Then
+                    GetLocalPath = FixPathSeparators(Replace(fullPath, .driveName _
+                                , .driveLetter & ":", 1, 1, vbTextCompare))
+                    Exit Function
+                End If
+            End With
         End If
-    End With
+    #End If
+    GetLocalPath = GetOneDriveLocalPath(fullPath, rebuildCache)
 End Function
-#End If
 
 '*******************************************************************************
 'Returns the UNC path for a given path or null string if path is not remote
 'Note that the input path does not need to be an existing file/folder
 '*******************************************************************************
-#If Mac = 0 Then
-Public Function GetUNCPath(ByVal fullPath As String) As String
+#If Windows Then
+Private Function GetUNCPath(ByVal fullPath As String) As String
     With GetDriveInfo(fullPath)
         If LenB(.shareName) = 0 Then Exit Function  'Not UNC
-        GetUNCPath = FixPathSeparators(Replace(fullPath _
-        , .driveName, .shareName, 1, 1, vbTextCompare))
+        GetUNCPath = FixPathSeparators(Replace(fullPath, .driveName, .shareName _
+                                             , 1, 1, vbTextCompare))
     End With
 End Function
 #End If
@@ -761,16 +815,19 @@ End Function
 'Returns the web path for a OneDrive local path or null string if not OneDrive
 'Note that the input path does not need to be an existing file/folder
 '*******************************************************************************
-#If Mac = 0 Then
-Public Function GetWebPath(ByVal fullPath As String) As String
-    GetWebPath = GetOneDriveWebPath(fullPath, rebuildCache:=False)
+Public Function GetRemotePath(ByVal fullPath As String _
+                           , Optional ByVal rebuildCache As Boolean = False) As String
+    #If Windows Then
+        GetRemotePath = GetUNCPath(fullPath)
+        If LenB(GetRemotePath) > 0 Then Exit Function
+    #End If
+    GetRemotePath = GetOneDriveWebPath(fullPath, rebuildCache)
 End Function
-#End If
 
 '*******************************************************************************
 'Returns basic drive information about a full path
 '*******************************************************************************
-#If Mac = 0 Then
+#If Windows Then
 Private Function GetDriveInfo(ByVal fullPath As String) As DRIVE_INFO
     Dim fso As Object: Set fso = GetFileSystemObject()
     If fso Is Nothing Then Exit Function
@@ -814,7 +871,7 @@ End Function
 '*******************************************************************************
 'Late-bounded file system for Windows
 '*******************************************************************************
-#If Mac = 0 Then
+#If Windows Then
 Private Function GetFileSystemObject() As Object
     Static fso As Object
     '
@@ -831,7 +888,7 @@ End Function
 'Aligns a wrong drive name with the share name
 'Example: \\emea\ to \\emea.companyName.net\
 '*******************************************************************************
-#If Mac = 0 Then
+#If Windows Then
 Private Function AlignDriveNameIfNeeded(ByVal driveName As String _
                                       , ByVal shareName As String) As String
     Dim sepIndex As Long
@@ -855,7 +912,6 @@ End Function
 'With the help of: @guwidoe (https://github.com/guwidoe)
 'See: https://github.com/cristianbuse/VBA-FileTools/issues/1
 '*******************************************************************************
-#If Mac = 0 Then
 Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
                                    , ByVal rebuildCache As Boolean) As String
     If InStr(1, odWebPath, "https://", vbTextCompare) <> 1 Then Exit Function
@@ -865,7 +921,7 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
     Dim mainIndex As Long
     Dim i As Long
     '
-    If rebuildCache Or Not m_providers.isSet Then ReadProviders
+    If rebuildCache Or Not m_providers.isSet Then ReadODProviders
     For i = 1 To m_providers.pCount
         With m_providers.arr(i)
             If StrCompLeft(odWebPath, .webPath, vbTextCompare) = 0 Then
@@ -914,7 +970,6 @@ Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
         GetOneDriveLocalPath = BuildPath(.mountPoint, rPart)
     End With
 End Function
-#End If
 Private Function StrCompLeft(ByRef s1 As String _
                            , ByRef s2 As String _
                            , ByVal compareMethod As VbCompareMethod) As Long
@@ -944,18 +999,15 @@ End Function
 'Returns the web path for a OneDrive local path
 'Returns null string if the path provided is not a valid OneDrive local path
 '*******************************************************************************
-#If Mac = 0 Then
 Private Function GetOneDriveWebPath(ByVal odLocalPath As String _
                                   , ByVal rebuildCache As Boolean) As String
-    If InStr(1, odLocalPath, ":\", vbTextCompare) <> 2 Then Exit Function
-    '
     Dim localPath As String
     Dim rPart As String
     Dim bestMatch As Long
     Dim i As Long
     '
     odLocalPath = FixPathSeparators(odLocalPath)
-    If rebuildCache Or Not m_providers.isSet Then ReadProviders
+    If rebuildCache Or Not m_providers.isSet Then ReadODProviders
     For i = 1 To m_providers.pCount
         localPath = m_providers.arr(i).mountPoint
         If StrCompLeft(odLocalPath, localPath, vbTextCompare) = 0 Then
@@ -974,59 +1026,214 @@ Private Function GetOneDriveWebPath(ByVal odLocalPath As String _
         GetOneDriveWebPath = .webPath & rPart
     End With
 End Function
-#End If
 
 '*******************************************************************************
+'Populates the OneDrive providers in the 'm_providers' structure
 'Utility for 'GetOneDriveLocalPath' and 'GetOneDriveWebPath'
 '*******************************************************************************
-Private Sub ReadProviders()
-    Dim folderPath As Variant
-    Dim folderName As String
-    Dim appPath As String
+Private Sub ReadODProviders()
+    Dim i As Long
+    Dim accountsInfo As ONEDRIVE_ACCOUNTS_INFO
     '
     m_providers.pCount = 0
+    m_providers.isSet = False
     '
-    appPath = BuildPath(Environ$("LOCALAPPDATA"), "Microsoft\OneDrive\settings\")
-    For Each folderPath In GetFolders(appPath)
-        folderName = Right$(folderPath, Len(folderPath) - Len(appPath))
-        If folderName Like "Business*" Then
-            AddBusinessPaths folderPath
-        ElseIf folderName = "Personal" Then
-            AddPersonalPaths folderPath
+    ReadODAccountsInfo accountsInfo
+    If Not accountsInfo.isSet Then Exit Sub
+    '
+    #If Mac Then
+        Dim collFiles As New Collection
+        Dim arrFiles() As String
+        Dim fileName As Variant
+        '
+        For i = 1 To accountsInfo.pCount
+            With accountsInfo.arr(i)
+                collFiles.Add .iniPath
+                collFiles.Add .datPath
+                If .isPersonal Then
+                    collFiles.Add .folderPath & "/ClientPolicy.ini"
+                    collFiles.Add .groupPath
+                Else
+                    fileName = Dir(.folderPath & "/ClientPolicy*.ini")
+                    Do While LenB(fileName) > 0
+                        collFiles.Add .folderPath & "/" & fileName
+                        fileName = Dir
+                    Loop
+                End If
+            End With
+        Next i
+        ReDim arrFiles(1 To collFiles.Count)
+        i = 1
+        For Each fileName In collFiles
+            arrFiles(i) = fileName
+            i = i + 1
+        Next fileName
+        If Not GrantAccessToMultipleFiles(arrFiles) Then Exit Sub
+    #End If
+    For i = 1 To accountsInfo.pCount
+        If accountsInfo.arr(i).isPersonal Then
+            AddPersonalProviders accountsInfo.arr(i)
+        Else
+            AddBusinessProviders accountsInfo.arr(i)
         End If
-    Next folderPath
+    Next i
     m_providers.isSet = True
+#If Mac Then
+    ClearConversionDescriptors
+#End If
 End Sub
-Private Function AddProvider() As Long
-    If m_providers.pCount = 0 Then
-        ReDim m_providers.arr(1 To 1)
-    Else
-        ReDim Preserve m_providers.arr(1 To m_providers.pCount + 1)
-    End If
-    m_providers.pCount = m_providers.pCount + 1
-    AddProvider = m_providers.pCount
-End Function
-Private Sub AddBusinessPaths(ByVal folderPath As String)
-    Const businessIniMask As String = "????????-????-????-????-????????????.ini"
-    Dim iniName As String: iniName = Dir(BuildPath(folderPath, businessIniMask))
-    If LenB(iniName) = 0 Then Exit Sub
+
+Sub ery()
+    Dim t As Double
+    t = Timer
+    ReadODProviders
+    Debug.Print Round(Timer - t, 3)
+End Sub
+
+'*******************************************************************************
+'Utility for reading folder information for all the OneDrive accounts
+'*******************************************************************************
+Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
+    Const businessMask As String = "????????-????-????-????-????????????"
+    Const personalMask As String = "????????????????"
+    Dim folderPath As Variant
+    Dim i As Long
+    Dim mask As String
+    Dim datName As String
+    Dim isValid As Boolean
+    Dim collFolders As Collection: Set collFolders = GetODAccountDirs()
     '
-    Dim iniPath As String: iniPath = BuildPath(folderPath, iniName)
-    Dim datPath As String: datPath = Replace(iniPath, ".ini", ".dat")
-    Dim bytes() As Byte:   ReadBytes iniPath, bytes
+    accountsInfo.pCount = 0
+    accountsInfo.isSet = False
+    '
+    If collFolders Is Nothing Then Exit Sub
+    If collFolders.Count > 0 Then
+        ReDim accountsInfo.arr(1 To collFolders.Count)
+    End If
+    '
+    For Each folderPath In collFolders
+        i = i + 1
+        With accountsInfo.arr(i)
+            .folderPath = folderPath
+            .isPersonal = (Right$(.folderPath, 8) = "Personal")
+            If .isPersonal Then
+                mask = personalMask
+            Else
+                mask = businessMask
+                .accountIndex = CLng(Right$(.folderPath, 1))
+            End If
+            datName = Dir(BuildPath(.folderPath, mask & ".dat"))
+            isValid = False
+            If LenB(datName) > 0 Then
+                .cID = Left$(datName, Len(datName) - 4)
+                .datPath = .folderPath & PATH_SEPARATOR & datName
+                .groupPath = .folderPath & PATH_SEPARATOR & "GroupFolders.ini"
+                .iniPath = .folderPath & PATH_SEPARATOR & .cID & ".ini"
+                isValid = (LenB(Dir(.iniPath)) > 0)
+                If isValid And .isPersonal Then
+                    isValid = (LenB(Dir(.groupPath)) > 0)
+                End If
+            End If
+            If Not isValid Then i = i - 1
+        End With
+    Next folderPath
+    With accountsInfo
+        If i > 0 And i < collFolders.Count Then ReDim Preserve .arr(1 To i)
+        .pCount = i
+        .isSet = True
+    End With
+End Sub
+
+'*******************************************************************************
+'Utility for reading all OneDrive account folder paths within OneDrive Settings
+'*******************************************************************************
+Private Function GetODAccountDirs() As Collection
+    Dim collSettings As Collection: Set collSettings = GetODSettingsDirs()
+    Dim settingsPath As Variant
+    '
+    #If Mac Then 'Grant access if needed
+        Dim arrDirs() As Variant: ReDim arrDirs(1 To collSettings.Count * 11)
+        Dim i As Long
+        '
+        For Each settingsPath In collSettings
+            For i = i + 1 To i + 9
+                arrDirs(i) = settingsPath & "Business" & i Mod 11
+            Next i
+            arrDirs(i) = settingsPath
+            i = i + 1
+            arrDirs(i) = settingsPath & "Personal"
+        Next settingsPath
+        If Not GrantAccessToMultipleFiles(arrDirs) Then Exit Function
+    #End If
+    '
+    Dim folderPath As Variant
+    Dim folderName As String
+    Dim collFolders As New Collection
+    '
+    For Each settingsPath In collSettings
+        folderName = Dir(settingsPath, vbDirectory)
+        Do While LenB(folderName) > 0
+            If folderName Like "Business#" Or folderName = "Personal" Then
+                folderPath = BuildPath(settingsPath, folderName)
+                If IsFolder(folderPath) Then collFolders.Add folderPath
+            End If
+            folderName = Dir
+        Loop
+    Next settingsPath
+    Set GetODAccountDirs = collFolders
+End Function
+
+'*******************************************************************************
+'Utility returning all possible OneDrive Settings folders
+'*******************************************************************************
+Private Function GetODSettingsDirs() As Collection
+    Set GetODSettingsDirs = New Collection
+    With GetODSettingsDirs
+    #If Mac Then
+        Const settingsPath = "/Library/Application Support/OneDrive/settings/"
+        Const dataPath = "/Library/Containers/com.microsoft.OneDrive-mac/Data"
+        Dim userPath As String: userPath = "/Users/" & Environ$("USER")
+        '
+        .Add userPath & settingsPath
+        .Add userPath & dataPath & settingsPath
+    #Else
+        .Add BuildPath(Environ$("LOCALAPPDATA"), "Microsoft\OneDrive\settings\")
+    #End If
+    End With
+End Function
+
+'*******************************************************************************
+'Returns the index of the newly added OneDrive provider struct
+'*******************************************************************************
+Private Function AddProvider() As Long
+    With m_providers
+        If .pCount = 0 Then Erase .arr
+        .pCount = .pCount + 1
+        ReDim Preserve .arr(1 To .pCount)
+        AddProvider = .pCount
+    End With
+End Function
+
+'*******************************************************************************
+'Adds all providers for a Business OneDrive account
+'*******************************************************************************
+Private Sub AddBusinessProviders(ByRef accountInfo As ONEDRIVE_ACCOUNT_INFO)
+    Dim bytes() As Byte:   ReadBytes accountInfo.iniPath, bytes
+    Dim iniText As String: iniText = bytes
     Dim lineText As Variant
     Dim temp() As String
     Dim tempMount As String
     Dim mainMount As String
-    Dim accountIndex As Long
     Dim tempURL As String
     Dim cFolders As Collection
     Dim cParents As Collection
     Dim cPending As New Collection
     Dim canAdd As Boolean
     '
-    accountIndex = CLng(Mid$(folderPath, InStrRev(folderPath, "Business") + 8))
-    For Each lineText In Split(bytes, vbNewLine)
+    #If Mac Then
+        iniText = ConvertText(iniText, codeUTF16LE, codeUTF8, True)
+    #End If
+    For Each lineText In Split(iniText, vbNewLine)
         Dim parts() As String: parts = Split(lineText, """")
         Select Case Left$(lineText, InStr(1, lineText, " "))
         Case "libraryScope "
@@ -1034,15 +1241,15 @@ Private Sub AddBusinessPaths(ByVal folderPath As String)
             canAdd = (LenB(tempMount) > 0)
             If parts(3) = "ODB" Then
                 mainMount = tempMount
-                tempURL = GetUrlNamespace(folderPath)
+                tempURL = GetUrlNamespace(accountInfo.folderPath)
             Else
                 temp = Split(parts(8), " ")
-                tempURL = GetUrlNamespace(folderPath, "_" & temp(3) & temp(1))
+                tempURL = GetUrlNamespace(accountInfo.folderPath, "_" & temp(3) & temp(1))
             End If
             If Not canAdd Then cPending.Add tempURL, Split(parts(0), " ")(2)
         Case "libraryFolder "
             If cFolders Is Nothing Then
-                Set cFolders = GetODFolders(datPath, cParents)
+                Set cFolders = GetODFolders(accountInfo.datPath, cParents)
             End If
             tempMount = parts(1)
             temp = Split(parts(0), " ")
@@ -1059,17 +1266,17 @@ Private Sub AddBusinessPaths(ByVal folderPath As String)
             tempURL = tempURL & tempFolder
         Case "AddedScope "
             If cFolders Is Nothing Then
-                Set cFolders = GetODFolders(datPath, cParents)
+                Set cFolders = GetODFolders(accountInfo.datPath, cParents)
             End If
             tempID = Split(parts(0), " ")(3)
             tempFolder = vbNullString
             On Error Resume Next
             Do
-                tempFolder = cFolders(tempID) & "\" & tempFolder
+                tempFolder = cFolders(tempID) & PATH_SEPARATOR & tempFolder
                 tempID = cParents(tempID)
             Loop Until Err.Number <> 0
             On Error GoTo 0
-            tempMount = mainMount & "\" & tempFolder
+            tempMount = mainMount & PATH_SEPARATOR & tempFolder
             tempURL = parts(5)
             If tempURL = " " Or LenB(tempURL) = 0 Then
                 tempURL = vbNullString
@@ -1077,7 +1284,7 @@ Private Sub AddBusinessPaths(ByVal folderPath As String)
                 tempURL = tempURL & "/"
             End If
             temp = Split(parts(4), " ")
-            tempURL = GetUrlNamespace(folderPath, "_" & temp(3) & temp(1) _
+            tempURL = GetUrlNamespace(accountInfo.folderPath, "_" & temp(3) & temp(1) _
                                                       & temp(4)) & tempURL
             canAdd = True
         Case Else
@@ -1089,80 +1296,79 @@ Private Sub AddBusinessPaths(ByVal folderPath As String)
                 .mountPoint = BuildPath(tempMount, vbNullString)
                 .isBusiness = True
                 .isMain = (tempMount = mainMount)
-                .accountIndex = accountIndex
+                .accountIndex = accountInfo.accountIndex
             End With
         End If
     Next lineText
 End Sub
+
+'*******************************************************************************
+'Returns the URLNamespace from a provider's ClientPolicy*.ini file
+'*******************************************************************************
 Private Function GetUrlNamespace(ByVal folderPath As String _
                                , Optional ByVal cSignature As String) As String
-    Const nTag As String = "DavUrlNamespace"
-    Dim bytes() As Byte
-    Dim lineText As Variant
+    Dim filePath As String
     '
-    ReadBytes BuildPath(folderPath, "ClientPolicy" & cSignature & ".ini"), bytes
-    For Each lineText In Split(bytes, vbNewLine)
-        If Left$(lineText, Len(nTag)) = nTag Then
-            GetUrlNamespace = Mid$(lineText, InStr(Len(nTag), lineText, "https"))
-            Exit Function
-        End If
-    Next lineText
+    filePath = BuildPath(folderPath, "ClientPolicy" & cSignature & ".ini")
+    GetUrlNamespace = GetTagValue(filePath, "DavUrlNamespace = ")
 End Function
-Private Sub AddPersonalPaths(ByVal folderPath As String)
-    Dim datName As String: datName = Dir(BuildPath(folderPath, "*.dat"))
-    Dim iniPath As String
-    Do
-        If LenB(datName) = 0 Then Exit Sub
-        iniPath = BuildPath(folderPath, Replace(datName, ".dat", ".ini"))
-        If IsFile(iniPath) Then Exit Do
-        datName = Dir
-    Loop
-    Dim mainURL As String: mainURL = GetUrlNamespace(folderPath) & "/"
-    Dim cid As String:     cid = Replace(datName, ".dat", vbNullString)
-    Dim tempURL As String: tempURL = mainURL & cid & "/"
-    Dim bytes() As Byte:   ReadBytes iniPath, bytes
+
+'*******************************************************************************
+'Returns the required value from an ini file text line based on given tag
+'*******************************************************************************
+Private Function GetTagValue(ByRef filePath As String _
+                           , ByRef vTag As String) As String
+    Dim bytes() As Byte: ReadBytes filePath, bytes
+    Dim fText As String: fText = bytes
+    '
+    #If Mac Then
+        fText = ConvertText(fText, codeUTF16LE, codeUTF8, True)
+    #End If
+    '
+    Dim i As Long: i = InStr(1, fText, vTag) + Len(vTag)
+    GetTagValue = Mid$(fText, i, InStr(i, fText, vbNewLine) - i)
+End Function
+
+'*******************************************************************************
+'Adds all providers for a Personal OneDrive account
+'*******************************************************************************
+Private Sub AddPersonalProviders(ByRef accountInfo As ONEDRIVE_ACCOUNT_INFO)
+    Dim mainURL As String:   mainURL = GetUrlNamespace(accountInfo.folderPath) & "/"
+    Dim libText As String:   libText = GetTagValue(accountInfo.iniPath, "library = ")
+    Dim mainMount As String: mainMount = Split(libText, """")(3) & PATH_SEPARATOR
+    Dim bytes() As Byte:     ReadBytes accountInfo.groupPath, bytes
+    Dim groupText As String: groupText = bytes
     Dim lineText As Variant
-    Dim mainMount As String
-    '
-    For Each lineText In Split(bytes, vbNewLine)
-        If Left$(lineText, InStr(1, lineText, " ")) = "library " Then
-            mainMount = Split(lineText, """")(3) & "\"
-            Exit For
-        End If
-    Next lineText
-    With m_providers.arr(AddProvider())
-        .webPath = tempURL
-        .mountPoint = mainMount
-    End With
-    '
-    Dim groupPath As String
+    Dim cID As String
     Dim i As Long
     Dim relPath As String
     Dim folderID As String
     Dim cFolders As Collection
-    Dim tempMount As String
     '
-    groupPath = BuildPath(folderPath, "GroupFolders.ini")
-    If Not IsFile(groupPath) Then Exit Sub
-    ReadBytes groupPath, bytes
-    '
-    For Each lineText In Split(bytes, vbNewLine)
+    With m_providers.arr(AddProvider())
+        .webPath = mainURL & accountInfo.cID & "/"
+        .mountPoint = mainMount
+    End With
+    #If Mac Then
+        groupText = ConvertText(groupText, codeUTF16LE, codeUTF8, True)
+    #End If
+    For Each lineText In Split(groupText, vbNewLine)
         If InStr(1, lineText, "_BaseUri", vbTextCompare) > 0 Then
-            cid = LCase$(Mid$(lineText, InStrRev(lineText, "/") + 1))
-            i = InStr(1, cid, "!")
-            If i > 0 Then cid = Left$(cid, i - 1)
+            cID = LCase$(Mid$(lineText, InStrRev(lineText, "/") + 1))
+            i = InStr(1, cID, "!")
+            If i > 0 Then cID = Left$(cID, i - 1)
         Else
             i = InStr(1, lineText, "_Path", vbTextCompare)
             If i > 0 Then
-                relPath = Mid$(lineText, InStr(lineText, " = ") + 3)
+                relPath = Mid$(lineText, i + 8)
                 folderID = Left$(lineText, i - 1)
                 If cFolders Is Nothing Then
-                    Set cFolders = GetODFolders(Replace(iniPath, ".ini", ".dat"))
+                    Set cFolders = GetODFolders(accountInfo.datPath)
                 End If
                 If cFolders.Count > 0 Then
                     With m_providers.arr(AddProvider())
-                        .webPath = mainURL & cid & "/" & relPath & "/"
-                        .mountPoint = mainMount & cFolders(folderID) & "\"
+                        .webPath = mainURL & cID & "/" & relPath & "/"
+                        .mountPoint = mainMount & cFolders(folderID) & PATH_SEPARATOR
                     End With
                 End If
             End If
@@ -1175,8 +1381,6 @@ End Sub
 '*******************************************************************************
 Private Function GetODFolders(ByVal filePath As String _
                             , Optional ByRef outParents As Collection) As Collection
-    If Not IsFile(filePath) Then Exit Function
-    '
     Dim fileNumber As Long: fileNumber = FreeFile()
     '
     Open filePath For Binary Access Read As #fileNumber
@@ -1187,8 +1391,8 @@ Private Function GetODFolders(ByVal filePath As String _
     Const idSize As Long = 39
     Const fNameOffset As Long = 121
     Const checkToName As Long = hCheckSize + idSize + fNameOffset + fNameOffset
-    '
     Const chunkSize As Long = &H100000 '1MB
+    '
     Dim b(1 To chunkSize) As Byte
     Dim s As String
     Dim lastRecord As Long
@@ -1204,6 +1408,13 @@ Private Function GetODFolders(ByVal filePath As String _
     Dim vbNullByte As String:   vbNullByte = MidB$(vbNullChar, 1, 1)
     Dim hFolder As String:      hFolder = StrConv(Chr$(&H2), vbFromUnicode) 'x02
     Dim hCheck As String:       hCheck = ChrW$(&H1) & String(3, vbNullChar) 'x01..
+    Dim nameEnd As String
+    '
+    #If Mac Then
+        nameEnd = vbNullChar & vbNullChar & ChrW$(&HABAB&) & ChrW$(&HABAB&)
+    #Else
+        nameEnd = vbNullChar & ChrW$(&HABAB&)
+    #End If
     '
     For stepSize = 16 To 8 Step -8
         lastFileChange = 0
@@ -1224,18 +1435,22 @@ Private Function GetODFolders(ByVal filePath As String _
                     i = i + hCheckSize
                     bytes = Clamp(InStrB(i, s, vbNullByte) - i, 0, idSize)
                     folderID = StrConv(MidB$(s, i, bytes), vbUnicode)
+                    '
                     i = i + idSize
                     bytes = Clamp(InStrB(i, s, vbNullByte) - i, 0, idSize)
                     parentID = StrConv(MidB$(s, i, bytes), vbUnicode)
+                    '
                     i = i + fNameOffset
-                    bytes = InStr(-Int(-(i - 1) / 2) + 1, s, vbNullChar) * 2 - i - 1
-                    bytes = bytes + bytes Mod 2
+                    bytes = -Int(-(InStrB(i, s, nameEnd) - i) / 2) * 2
                     If bytes < 0 Or i + bytes - 1 > chunkSize Then 'Read next chunk
                         i = i - checkToName
                         Exit Do
                     End If
-                    folderName = MidB$(s, i, bytes)
                     If LenB(folderID) > 0 And LenB(parentID) > 0 Then
+                        folderName = MidB$(s, i, bytes)
+                        #If Mac Then
+                            folderName = ConvertText(folderName, codeUTF16LE, codeUTF32LE, True)
+                        #End If
                         cFolders.Add folderName, folderID
                         outParents.Add parentID, folderID
                     End If
@@ -1376,7 +1591,7 @@ Public Function MoveFolder(ByVal sourcePath As String _
     On Error GoTo 0
     '
     'Try FSO if available
-    #If Mac = 0 Then
+    #If Windows Then
         On Error Resume Next
         GetFileSystemObject().MoveFolder sourcePath, destinationPath
         If Err.Number = 0 Then
@@ -1414,9 +1629,108 @@ Public Sub ReadBytes(ByVal filePath As String, ByRef result() As Byte)
     Dim size As Long: size = LOF(fileNumber)
     If size > 0 Then
         ReDim result(0 To size - 1)
-        Get fileNumber, , result
+        Get fileNumber, 1, result
     Else
         Erase result
     End If
     Close #fileNumber
 End Sub
+
+'*******************************************************************************
+'Converts a text between 2 page codes
+'*******************************************************************************
+#If Mac Then
+Public Function ConvertText(ByRef textToConvert As String _
+                          , ByVal toCode As PageCode _
+                          , ByVal fromCode As PageCode _
+                          , Optional ByVal persistDescriptor As Boolean = False) As String
+#Else
+Public Function ConvertText(ByRef textToConvert As String _
+                          , ByVal toCode As PageCode _
+                          , ByVal fromCode As PageCode) As String
+#End If
+    If toCode = fromCode Then
+        ConvertText = textToConvert
+        Exit Function
+    End If
+    #If Mac Then
+        Dim inBytesLeft As LongPtr:  inBytesLeft = LenB(textToConvert)
+        Dim outBytesLeft As LongPtr: outBytesLeft = inBytesLeft * 4
+        Dim buffer As String:        buffer = Space$(CLng(inBytesLeft) * 2)
+        Dim inBuf As LongPtr:        inBuf = StrPtr(textToConvert)
+        Dim outBuf As LongPtr:       outBuf = StrPtr(buffer)
+        Dim cd As LongPtr
+        Dim cdKey As String:         cdKey = fromCode & "_" & toCode
+        Dim cdFound As Boolean
+        '
+        On Error Resume Next
+        cd = m_conversionDescriptors(cdKey)
+        cdFound = (cd <> 0)
+        On Error GoTo 0
+        If Not cdFound Then
+            cd = iconv_open(StrPtr(PageCodeToText(toCode)) _
+                          , StrPtr(PageCodeToText(fromCode)))
+            If persistDescriptor Then m_conversionDescriptors.Add cd, cdKey
+        End If
+        If iconv(cd, inBuf, inBytesLeft, outBuf, outBytesLeft) <> -1 Then
+            ConvertText = LeftB$(buffer, LenB(buffer) - CLng(outBytesLeft))
+        End If
+        If Not (cdFound Or persistDescriptor) Then iconv_close cd
+    #Else
+        If toCode = codeUTF16LE Then
+            ConvertText = EncodeToUTF16LE(textToConvert, fromCode)
+        ElseIf fromCode = codeUTF16LE Then
+            ConvertText = EncodeFromUTF16LE(textToConvert, toCode)
+        Else
+            ConvertText = EncodeFromUTF16LE(EncodeToUTF16LE(textToConvert, fromCode), toCode)
+        End If
+    #End If
+End Function
+#If Mac Then
+Public Sub ClearConversionDescriptors()
+    If m_conversionDescriptors.Count = 0 Then Exit Sub
+    Dim v As Variant
+    '
+    For Each v In m_conversionDescriptors
+        iconv_close v
+    Next v
+    Set m_conversionDescriptors = Nothing
+End Sub
+Private Function PageCodeToText(ByVal pc As PageCode) As String
+    Dim result As String
+    Select Case pc
+        Case codeUTF8:    result = "UTF-8"
+        Case codeUTF16LE: result = "UTF-16LE"
+        Case codeUTF16BE: result = "UTF-16BE"
+        Case codeUTF32LE: result = "UTF-32LE"
+        Case codeUTF32BE: result = "UTF-32BE"
+    End Select
+    PageCodeToText = StrConv(result, vbFromUnicode)
+End Function
+#Else
+Private Function EncodeToUTF16LE(ByRef textToConvert As String _
+                               , ByVal fromCode As PageCode) As String
+    Dim charCount As Long
+    charCount = MultiByteToWideChar(fromCode, 0, StrPtr(textToConvert) _
+                                  , LenB(textToConvert), 0, 0)
+    If charCount = 0 Then Exit Function
+    
+    EncodeToUTF16LE = Space$(charCount)
+    MultiByteToWideChar fromCode, 0, StrPtr(textToConvert) _
+                      , LenB(textToConvert), StrPtr(EncodeToUTF16LE), charCount
+End Function
+Private Function EncodeFromUTF16LE(ByRef textToConvert As String _
+                                 , ByVal toCode As PageCode) As String
+    Dim byteCount As Long
+    byteCount = WideCharToMultiByte(toCode, 0, StrPtr(textToConvert) _
+                                  , Len(textToConvert), 0, 0, 0, 0)
+    If byteCount = 0 Then Exit Function
+    '
+    EncodeFromUTF16LE = Space$((byteCount + 1) \ 2)
+    If byteCount Mod 2 = 1 Then
+        EncodeFromUTF16LE = LeftB$(EncodeFromUTF16LE, byteCount)
+    End If
+    WideCharToMultiByte toCode, 0, StrPtr(textToConvert), Len(textToConvert) _
+                      , StrPtr(EncodeFromUTF16LE), byteCount, 0, 0
+End Function
+#End If
