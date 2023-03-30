@@ -136,9 +136,9 @@ Public Function BrowseForFiles(Optional ByVal initialPath As String _
         End If
         '
         .AllowMultiSelect = allowMultiFiles
-        .filters.Clear 'Allows all file types
+        .Filters.Clear 'Allows all file types
         On Error Resume Next
-        .filters.Add filterDesc, filterList
+        .Filters.Add filterDesc, filterList
         On Error GoTo 0
         '
         Set BrowseForFiles = New Collection
@@ -149,6 +149,7 @@ Public Function BrowseForFiles(Optional ByVal initialPath As String _
                 BrowseForFiles.Add v
             Next v
         End If
+        If Not BrowseForFiles.Count > 0 Then Set BrowseForFiles = Nothing   'in case the user canceled the operation
     End With
 End Function
 #End If
