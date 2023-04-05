@@ -124,6 +124,8 @@ Private Type ONEDRIVE_PROVIDER
     isBusiness As Boolean
     isMain As Boolean
     accountIndex As Long
+    baseMount As String
+    syncID As String
 End Type
 Private Type ONEDRIVE_PROVIDERS
     arr() As ONEDRIVE_PROVIDER
@@ -132,9 +134,11 @@ Private Type ONEDRIVE_PROVIDERS
 End Type
 
 Private Type ONEDRIVE_ACCOUNT_INFO
+    accountName As String
     accountIndex As Long
     cID As String
     datPath As String
+    datDateTime As Date
     folderPath As String
     groupPath As String
     iniPath As String
@@ -1041,10 +1045,9 @@ Private Sub ReadODProviders()
     ReadODAccountsInfo accountsInfo
     If Not accountsInfo.isSet Then Exit Sub
     '
-    #If Mac Then
+    #If Mac Then 'Grant access to all needed files/folders, in batch
         Dim collFiles As New Collection
-        Dim arrFiles() As String
-        Dim fileName As Variant
+        Dim fileName As String
         '
         For i = 1 To accountsInfo.pCount
             With accountsInfo.arr(i)
@@ -1062,13 +1065,52 @@ Private Sub ReadODProviders()
                 End If
             End With
         Next i
-        ReDim arrFiles(1 To collFiles.Count)
-        i = 1
-        For Each fileName In collFiles
-            arrFiles(i) = fileName
-            i = i + 1
-        Next fileName
-        If Not GrantAccessToMultipleFiles(arrFiles) Then Exit Sub
+        '
+        Const syncIDFileName As String = ".849C9593-D756-4E56-8D6E-42412F2A707B"
+        Dim collCloudDirs As Collection: Set collCloudDirs = GetODCloudDirs()
+        Dim odCloudDir As Variant
+        Dim arrPaths() As String
+        Dim syncIDPath As String
+        Dim syncID As String
+        Dim folderPath As String
+        Dim collSyncIDToDir As New Collection
+        '
+        For Each odCloudDir In collCloudDirs
+            collFiles.Add odCloudDir
+            collFiles.Add odCloudDir & "/" & syncIDFileName
+        Next odCloudDir
+        arrPaths = CollectionToStrings(collFiles)
+        If Not GrantAccessToMultipleFiles(arrPaths) Then Exit Sub
+        '
+        Set collFiles = New Collection
+        For Each odCloudDir In collCloudDirs
+            syncIDPath = odCloudDir & "/" & syncIDFileName
+            If IsFile(syncIDPath) Then
+                syncID = ReadSyncID(syncIDPath)
+                If LenB(syncID) > 0 Then collSyncIDToDir.Add odCloudDir, syncID
+            Else
+                fileName = Dir(odCloudDir & "/", vbDirectory)
+                Do While LenB(fileName) > 0
+                    folderPath = odCloudDir & "/" & fileName
+                    collFiles.Add folderPath
+                    collFiles.Add folderPath & "/" & syncIDFileName
+                    fileName = Dir
+                Loop
+            End If
+        Next odCloudDir
+        If collFiles.Count > 0 Then
+            arrPaths = CollectionToStrings(collFiles)
+            If Not GrantAccessToMultipleFiles(arrPaths) Then Exit Sub
+            '
+            For i = LBound(arrPaths) To UBound(arrPaths) Step 2
+                syncIDPath = arrPaths(i + 1)
+                If IsFile(syncIDPath) Then
+                    odCloudDir = arrPaths(i)
+                    syncID = ReadSyncID(syncIDPath)
+                    If LenB(syncID) > 0 Then collSyncIDToDir.Add odCloudDir, syncID
+                End If
+            Next i
+        End If
     #End If
     For i = 1 To accountsInfo.pCount
         If accountsInfo.arr(i).isPersonal Then
@@ -1077,18 +1119,69 @@ Private Sub ReadODProviders()
             AddBusinessProviders accountsInfo.arr(i)
         End If
     Next i
+    #If Mac Then
+        If collSyncIDToDir.Count > 0 Then 'Replace sandbox paths
+            For i = 1 To m_providers.pCount
+                With m_providers.arr(i)
+                    Dim syncDir As String: syncDir = collSyncIDToDir(.syncID)
+                    .mountPoint = Replace(.mountPoint, .baseMount, syncDir)
+                End With
+            Next i
+        End If
+    #End If
     m_providers.isSet = True
 #If Mac Then
     ClearConversionDescriptors
 #End If
 End Sub
 
-Sub ery()
-    Dim t As Double
-    t = Timer
-    ReadODProviders
-    Debug.Print Round(Timer - t, 3)
-End Sub
+'*******************************************************************************
+'Mac utilities for reading OneDrive providers
+'*******************************************************************************
+#If Mac Then
+Private Function GetODCloudDirs() As Collection
+    Dim coll As New Collection
+    Dim cloudPath As String:  cloudPath = GetCloudPath()
+    Dim folderName As String: folderName = Dir(cloudPath, vbDirectory)
+    '
+    Do While LenB(folderName) > 0
+        If folderName Like "OneDrive*" Then
+            coll.Add BuildPath(cloudPath, folderName)
+        End If
+        folderName = Dir
+    Loop
+    Set GetODCloudDirs = coll
+End Function
+Private Function GetCloudPath() As String
+    GetCloudPath = GetUserPath() & "Library/CloudStorage/"
+End Function
+Private Function GetUserPath() As String
+    GetUserPath = "/Users/" & Environ$("USER") & "/"
+End Function
+Private Function CollectionToStrings(ByVal coll As Collection) As String()
+    If coll.Count = 0 Then
+        CollectionToStrings = Split(vbNullString)
+        Exit Function
+    End If
+    '
+    Dim res() As String: ReDim res(0 To coll.Count - 1)
+    Dim i As Long
+    Dim v As Variant
+    '
+    For Each v In coll
+        res(i) = v
+        i = i + 1
+    Next v
+    CollectionToStrings = res
+End Function
+Public Function ReadSyncID(ByRef syncFilePath As String) As String
+    Dim b() As Byte:       ReadBytes syncFilePath, b
+    Dim parts() As String: parts = Split(StrConv(b, vbUnicode), """guid"" : """)
+    '
+    If UBound(parts) < 1 Then Exit Function
+    ReadSyncID = Left$(parts(1), InStr(1, parts(1), """") - 1)
+End Function
+#End If
 
 '*******************************************************************************
 'Utility for reading folder information for all the OneDrive accounts
@@ -1098,6 +1191,7 @@ Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
     Const personalMask As String = "????????????????"
     Dim folderPath As Variant
     Dim i As Long
+    Dim j As Long
     Dim mask As String
     Dim datName As String
     Dim isValid As Boolean
@@ -1115,7 +1209,8 @@ Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
         i = i + 1
         With accountsInfo.arr(i)
             .folderPath = folderPath
-            .isPersonal = (Right$(.folderPath, 8) = "Personal")
+            .accountName = Mid$(folderPath, InStrRev(folderPath, PATH_SEPARATOR) + 1)
+            .isPersonal = (.accountName = "Personal")
             If .isPersonal Then
                 mask = personalMask
             Else
@@ -1130,11 +1225,20 @@ Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
                 .groupPath = .folderPath & PATH_SEPARATOR & "GroupFolders.ini"
                 .iniPath = .folderPath & PATH_SEPARATOR & .cID & ".ini"
                 isValid = (LenB(Dir(.iniPath)) > 0)
-                If isValid And .isPersonal Then
-                    isValid = (LenB(Dir(.groupPath)) > 0)
-                End If
             End If
-            If Not isValid Then i = i - 1
+            If isValid Then
+                .datDateTime = FileDateTime(.datPath)
+                For j = 1 To i - 1 'Check for unsynchronized accounts
+                    If accountsInfo.arr(j).accountName = .accountName Then
+                        If accountsInfo.arr(j).datDateTime < .datDateTime Then
+                            accountsInfo.arr(j) = accountsInfo.arr(i)
+                        End If
+                        i = i - 1
+                    End If
+                Next j
+            Else
+                i = i - 1
+            End If
         End With
     Next folderPath
     With accountsInfo
@@ -1151,8 +1255,8 @@ Private Function GetODAccountDirs() As Collection
     Dim collSettings As Collection: Set collSettings = GetODSettingsDirs()
     Dim settingsPath As Variant
     '
-    #If Mac Then 'Grant access if needed
-        Dim arrDirs() As Variant: ReDim arrDirs(1 To collSettings.Count * 11)
+    #If Mac Then 'Grant access, if needed, to all possbile folders, in batch
+        Dim arrDirs() As Variant: ReDim arrDirs(1 To collSettings.Count * 11 + 1)
         Dim i As Long
         '
         For Each settingsPath In collSettings
@@ -1163,6 +1267,7 @@ Private Function GetODAccountDirs() As Collection
             i = i + 1
             arrDirs(i) = settingsPath & "Personal"
         Next settingsPath
+        arrDirs(i + 1) = GetCloudPath()
         If Not GrantAccessToMultipleFiles(arrDirs) Then Exit Function
     #End If
     '
@@ -1190,12 +1295,10 @@ Private Function GetODSettingsDirs() As Collection
     Set GetODSettingsDirs = New Collection
     With GetODSettingsDirs
     #If Mac Then
-        Const settingsPath = "/Library/Application Support/OneDrive/settings/"
-        Const dataPath = "/Library/Containers/com.microsoft.OneDrive-mac/Data"
-        Dim userPath As String: userPath = "/Users/" & Environ$("USER")
-        '
-        .Add userPath & settingsPath
-        .Add userPath & dataPath & settingsPath
+        Const settingsPath = "Library/Application Support/OneDrive/settings/"
+        Const dataPath = "Library/Containers/com.microsoft.OneDrive-mac/Data/"
+        .Add GetUserPath() & settingsPath
+        .Add GetUserPath() & dataPath & settingsPath
     #Else
         .Add BuildPath(Environ$("LOCALAPPDATA"), "Microsoft\OneDrive\settings\")
     #End If
@@ -1224,6 +1327,8 @@ Private Sub AddBusinessProviders(ByRef accountInfo As ONEDRIVE_ACCOUNT_INFO)
     Dim temp() As String
     Dim tempMount As String
     Dim mainMount As String
+    Dim syncID As String
+    Dim mainSyncID As String
     Dim tempURL As String
     Dim cFolders As Collection
     Dim cParents As Collection
@@ -1238,9 +1343,11 @@ Private Sub AddBusinessProviders(ByRef accountInfo As ONEDRIVE_ACCOUNT_INFO)
         Select Case Left$(lineText, InStr(1, lineText, " "))
         Case "libraryScope "
             tempMount = parts(9)
+            syncID = Split(parts(10), " ")(2)
             canAdd = (LenB(tempMount) > 0)
             If parts(3) = "ODB" Then
                 mainMount = tempMount
+                mainSyncID = syncID
                 tempURL = GetUrlNamespace(accountInfo.folderPath)
             Else
                 temp = Split(parts(8), " ")
@@ -1254,6 +1361,7 @@ Private Sub AddBusinessProviders(ByRef accountInfo As ONEDRIVE_ACCOUNT_INFO)
             tempMount = parts(1)
             temp = Split(parts(0), " ")
             tempURL = cPending(temp(3))
+            syncID = Split(parts(4), " ")(1)
             Dim tempID As String:     tempID = Split(temp(4), "+")(0)
             Dim tempFolder As String: tempFolder = vbNullString
             On Error Resume Next
@@ -1277,6 +1385,7 @@ Private Sub AddBusinessProviders(ByRef accountInfo As ONEDRIVE_ACCOUNT_INFO)
             Loop Until Err.Number <> 0
             On Error GoTo 0
             tempMount = mainMount & PATH_SEPARATOR & tempFolder
+            syncID = mainSyncID
             tempURL = parts(5)
             If tempURL = " " Or LenB(tempURL) = 0 Then
                 tempURL = vbNullString
@@ -1297,6 +1406,12 @@ Private Sub AddBusinessProviders(ByRef accountInfo As ONEDRIVE_ACCOUNT_INFO)
                 .isBusiness = True
                 .isMain = (tempMount = mainMount)
                 .accountIndex = accountInfo.accountIndex
+                If syncID = mainSyncID Then
+                    .baseMount = mainMount
+                Else
+                    .baseMount = tempMount
+                End If
+                .syncID = syncID
             End With
         End If
     Next lineText
@@ -1333,11 +1448,13 @@ End Function
 'Adds all providers for a Personal OneDrive account
 '*******************************************************************************
 Private Sub AddPersonalProviders(ByRef accountInfo As ONEDRIVE_ACCOUNT_INFO)
-    Dim mainURL As String:   mainURL = GetUrlNamespace(accountInfo.folderPath) & "/"
-    Dim libText As String:   libText = GetTagValue(accountInfo.iniPath, "library = ")
-    Dim mainMount As String: mainMount = Split(libText, """")(3) & PATH_SEPARATOR
-    Dim bytes() As Byte:     ReadBytes accountInfo.groupPath, bytes
-    Dim groupText As String: groupText = bytes
+    Dim mainURL As String:    mainURL = GetUrlNamespace(accountInfo.folderPath) & "/"
+    Dim libText As String:    libText = GetTagValue(accountInfo.iniPath, "library = ")
+    Dim libParts() As String: libParts = Split(libText, """")
+    Dim mainMount As String:  mainMount = libParts(3)
+    Dim bytes() As Byte:      ReadBytes accountInfo.groupPath, bytes
+    Dim groupText As String:  groupText = bytes
+    Dim syncID As String:     syncID = Split(libParts(4), " ")(2)
     Dim lineText As Variant
     Dim cID As String
     Dim i As Long
@@ -1347,7 +1464,9 @@ Private Sub AddPersonalProviders(ByRef accountInfo As ONEDRIVE_ACCOUNT_INFO)
     '
     With m_providers.arr(AddProvider())
         .webPath = mainURL & accountInfo.cID & "/"
-        .mountPoint = mainMount
+        .mountPoint = mainMount & PATH_SEPARATOR
+        .baseMount = mainMount
+        .syncID = syncID
     End With
     #If Mac Then
         groupText = ConvertText(groupText, codeUTF16LE, codeUTF8, True)
@@ -1368,7 +1487,9 @@ Private Sub AddPersonalProviders(ByRef accountInfo As ONEDRIVE_ACCOUNT_INFO)
                 If cFolders.Count > 0 Then
                     With m_providers.arr(AddProvider())
                         .webPath = mainURL & cID & "/" & relPath & "/"
-                        .mountPoint = mainMount & cFolders(folderID) & PATH_SEPARATOR
+                        .mountPoint = BuildPath(mainMount, cFolders(folderID) & "/")
+                        .baseMount = mainMount
+                        .syncID = syncID
                     End With
                 End If
             End If
@@ -1489,7 +1610,7 @@ Public Function IsFile(ByVal filePath As String) As Boolean
     fAttr = GetAttr(filePath)
     If Err.Number = errBadFileNameOrNumber Then 'Unicode characters
         #If Mac Then
-            
+
         #Else
             IsFile = GetFileSystemObject().FileExists(filePath)
         #End If
@@ -1511,7 +1632,7 @@ Public Function IsFolder(ByVal folderPath As String) As Boolean
     fAttr = GetAttr(folderPath)
     If Err.Number = errBadFileNameOrNumber Then 'Unicode characters
         #If Mac Then
-            
+
         #Else
             IsFolder = GetFileSystemObject().FolderExists(folderPath)
         #End If
@@ -1714,7 +1835,7 @@ Private Function EncodeToUTF16LE(ByRef textToConvert As String _
     charCount = MultiByteToWideChar(fromCode, 0, StrPtr(textToConvert) _
                                   , LenB(textToConvert), 0, 0)
     If charCount = 0 Then Exit Function
-    
+
     EncodeToUTF16LE = Space$(charCount)
     MultiByteToWideChar fromCode, 0, StrPtr(textToConvert) _
                       , LenB(textToConvert), StrPtr(EncodeToUTF16LE), charCount
