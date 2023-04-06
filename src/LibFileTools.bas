@@ -143,6 +143,7 @@ Private Type ONEDRIVE_ACCOUNT_INFO
     groupPath As String
     iniPath As String
     isPersonal As Boolean
+    isValid As Boolean
 End Type
 Private Type ONEDRIVE_ACCOUNTS_INFO
     arr() As ONEDRIVE_ACCOUNT_INFO
@@ -1112,11 +1113,19 @@ Private Sub ReadODProviders()
             Next i
         End If
     #End If
+    For i = 1 To accountsInfo.pCount 'Check for unsynchronized accounts
+        Dim j As Long
+        For j = i + 1 To accountsInfo.pCount
+            ValidateAccounts accountsInfo.arr(i), accountsInfo.arr(j)
+        Next j
+    Next i
     For i = 1 To accountsInfo.pCount
-        If accountsInfo.arr(i).isPersonal Then
-            AddPersonalProviders accountsInfo.arr(i)
-        Else
-            AddBusinessProviders accountsInfo.arr(i)
+        If accountsInfo.arr(i).isValid Then
+            If accountsInfo.arr(i).isPersonal Then
+                AddPersonalProviders accountsInfo.arr(i)
+            Else
+                AddBusinessProviders accountsInfo.arr(i)
+            End If
         End If
     Next i
     #If Mac Then
@@ -1174,7 +1183,7 @@ Private Function CollectionToStrings(ByVal coll As Collection) As String()
     Next v
     CollectionToStrings = res
 End Function
-Public Function ReadSyncID(ByRef syncFilePath As String) As String
+Private Function ReadSyncID(ByRef syncFilePath As String) As String
     Dim b() As Byte:       ReadBytes syncFilePath, b
     Dim parts() As String: parts = Split(StrConv(b, vbUnicode), """guid"" : """)
     '
@@ -1182,6 +1191,17 @@ Public Function ReadSyncID(ByRef syncFilePath As String) As String
     ReadSyncID = Left$(parts(1), InStr(1, parts(1), """") - 1)
 End Function
 #End If
+Private Sub ValidateAccounts(ByRef a1 As ONEDRIVE_ACCOUNT_INFO _
+                           , ByRef a2 As ONEDRIVE_ACCOUNT_INFO)
+    If a1.accountName <> a2.accountName Then Exit Sub
+    If Not (a1.isValid And a2.isValid) Then Exit Sub
+    '
+    If a1.datDateTime = 0 Then a1.datDateTime = FileDateTime(a1.datPath)
+    If a2.datDateTime = 0 Then a2.datDateTime = FileDateTime(a2.datPath)
+    '
+    a1.isValid = (a1.datDateTime > a2.datDateTime)
+    a2.isValid = Not a1.isValid
+End Sub
 
 '*******************************************************************************
 'Utility for reading folder information for all the OneDrive accounts
@@ -1191,10 +1211,8 @@ Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
     Const personalMask As String = "????????????????"
     Dim folderPath As Variant
     Dim i As Long
-    Dim j As Long
     Dim mask As String
     Dim datName As String
-    Dim isValid As Boolean
     Dim collFolders As Collection: Set collFolders = GetODAccountDirs()
     '
     accountsInfo.pCount = 0
@@ -1218,27 +1236,18 @@ Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
                 .accountIndex = CLng(Right$(.folderPath, 1))
             End If
             datName = Dir(BuildPath(.folderPath, mask & ".dat"))
-            isValid = False
             If LenB(datName) > 0 Then
                 .cID = Left$(datName, Len(datName) - 4)
                 .datPath = .folderPath & PATH_SEPARATOR & datName
                 .groupPath = .folderPath & PATH_SEPARATOR & "GroupFolders.ini"
                 .iniPath = .folderPath & PATH_SEPARATOR & .cID & ".ini"
-                isValid = (LenB(Dir(.iniPath)) > 0)
+                #If Mac Then 'Avoid Mac File Access Request
+                    .isValid = (Dir(.iniPath & "*") = .cID & ".ini")
+                #Else
+                    .isValid = IsFile(.iniPath)
+                #End If
             End If
-            If isValid Then
-                .datDateTime = FileDateTime(.datPath)
-                For j = 1 To i - 1 'Check for unsynchronized accounts
-                    If accountsInfo.arr(j).accountName = .accountName Then
-                        If accountsInfo.arr(j).datDateTime < .datDateTime Then
-                            accountsInfo.arr(j) = accountsInfo.arr(i)
-                        End If
-                        i = i - 1
-                    End If
-                Next j
-            Else
-                i = i - 1
-            End If
+            If Not .isValid Then i = i - 1
         End With
     Next folderPath
     With accountsInfo
