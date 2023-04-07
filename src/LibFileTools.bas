@@ -1284,7 +1284,7 @@ Private Function GetODAccountDirs() As Collection
         Do While LenB(folderName) > 0
             If folderName Like "Business#" Or folderName = "Personal" Then
                 folderPath = settingsPath & folderName
-                If IsFolder(folderPath) Then collFolders.Add folderPath
+                If IsFolder(CStr(folderPath)) Then collFolders.Add folderPath
             End If
             folderName = Dir
         Loop
@@ -1605,7 +1605,7 @@ End Function
 'Note that if C:\Test\1.txt is valid then C:\Test\\///1.txt will also be valid
 'Most VBA methods consider valid any path separators with multiple characters
 '*******************************************************************************
-Public Function IsFile(ByVal filePath As String) As Boolean
+Public Function IsFile(ByRef filePath As String) As Boolean
     Const maxFileLen As Long = 259
     Const errBadFileNameOrNumber As Long = 52
     Dim fAttr As VbFileAttribute
@@ -1624,7 +1624,9 @@ Public Function IsFile(ByVal filePath As String) As Boolean
         #If Mac Then
             
         #Else
-            If Left$(filePath, 2) = "\\" Then
+            If Left$(filePath, 4) = "\\?\" Then
+                IsFile = GetFSO().FileExists(filePath)
+            ElseIf Left$(filePath, 2) = "\\" Then
                 IsFile = GetFSO().FileExists("\\?\UNC" & Mid$(filePath, 2))
             Else
                 IsFile = GetFSO().FileExists("\\?\" & filePath)
@@ -1638,7 +1640,7 @@ End Function
 'Note that if C:\Test\Demo is valid then C:\Test\\///Demo will also be valid
 'Most VBA methods consider valid any path separators with multiple characters
 '*******************************************************************************
-Public Function IsFolder(ByVal folderPath As String) As Boolean
+Public Function IsFolder(ByRef folderPath As String) As Boolean
     Const maxDirLen As Long = 247
     Const errBadFileNameOrNumber As Long = 52
     Dim fAttr As VbFileAttribute
@@ -1657,7 +1659,9 @@ Public Function IsFolder(ByVal folderPath As String) As Boolean
         #If Mac Then
             
         #Else
-            If Left$(folderPath, 2) = "\\" Then
+            If Left$(folderPath, 4) = "\\?\" Then
+                IsFolder = GetFSO().FolderExists(folderPath)
+            ElseIf Left$(folderPath, 2) = "\\" Then
                 IsFolder = GetFSO().FolderExists("\\?\UNC" & Mid$(folderPath, 2))
             Else
                 IsFolder = GetFSO().FolderExists("\\?\" & folderPath)
