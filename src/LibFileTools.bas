@@ -375,7 +375,7 @@ Public Function CreateFolder(ByVal folderPath As String _
         #If Mac Then
             MkDir collFoldersToCreate(i)
         #Else
-            GetFileSystemObject.CreateFolder collFoldersToCreate(i)
+            GetFSO.CreateFolder collFoldersToCreate(i)
         #End If
         If Err.Number <> 0 Then Exit For
     Next i
@@ -835,7 +835,7 @@ End Function
 '*******************************************************************************
 #If Windows Then
 Private Function GetDriveInfo(ByVal fullPath As String) As DRIVE_INFO
-    Dim fso As Object: Set fso = GetFileSystemObject()
+    Dim fso As Object: Set fso = GetFSO()
     If fso Is Nothing Then Exit Function
     '
     Dim driveName As String: driveName = fso.GetDriveName(fullPath)
@@ -878,7 +878,7 @@ End Function
 'Late-bounded file system for Windows
 '*******************************************************************************
 #If Windows Then
-Private Function GetFileSystemObject() As Object
+Private Function GetFSO() As Object
     Static fso As Object
     '
     If fso Is Nothing Then
@@ -886,7 +886,7 @@ Private Function GetFileSystemObject() As Object
         Set fso = CreateObject("Scripting.FileSystemObject")
         On Error GoTo 0
     End If
-    Set GetFileSystemObject = fso
+    Set GetFSO = fso
 End Function
 #End If
 
@@ -1606,6 +1606,7 @@ End Function
 'Most VBA methods consider valid any path separators with multiple characters
 '*******************************************************************************
 Public Function IsFile(ByVal filePath As String) As Boolean
+    Const maxFileLen As Long = 259
     Const errBadFileNameOrNumber As Long = 52
     Dim fAttr As VbFileAttribute
     '
@@ -1613,12 +1614,22 @@ Public Function IsFile(ByVal filePath As String) As Boolean
     fAttr = GetAttr(filePath)
     If Err.Number = errBadFileNameOrNumber Then 'Unicode characters
         #If Mac Then
-
+            
         #Else
-            IsFile = GetFileSystemObject().FileExists(filePath)
+            IsFile = GetFSO().FileExists(filePath)
         #End If
     ElseIf Err.Number = 0 Then
         IsFile = Not CBool(fAttr And vbDirectory)
+    ElseIf Len(filePath) > maxFileLen Then
+        #If Mac Then
+            
+        #Else
+            If Left$(filePath, 2) = "\\" Then
+                IsFile = GetFSO().FileExists("\\?\UNC" & Mid$(filePath, 2))
+            Else
+                IsFile = GetFSO().FileExists("\\?\" & filePath)
+            End If
+        #End If
     End If
     On Error GoTo 0
 End Function
@@ -1628,6 +1639,7 @@ End Function
 'Most VBA methods consider valid any path separators with multiple characters
 '*******************************************************************************
 Public Function IsFolder(ByVal folderPath As String) As Boolean
+    Const maxDirLen As Long = 247
     Const errBadFileNameOrNumber As Long = 52
     Dim fAttr As VbFileAttribute
     '
@@ -1635,12 +1647,22 @@ Public Function IsFolder(ByVal folderPath As String) As Boolean
     fAttr = GetAttr(folderPath)
     If Err.Number = errBadFileNameOrNumber Then 'Unicode characters
         #If Mac Then
-
+            
         #Else
-            IsFolder = GetFileSystemObject().FolderExists(folderPath)
+            IsFolder = GetFSO().FolderExists(folderPath)
         #End If
-    Else
+    ElseIf Err.Number = 0 Then
         IsFolder = CBool(fAttr And vbDirectory)
+    ElseIf Len(folderPath) > maxDirLen Then
+        #If Mac Then
+            
+        #Else
+            If Left$(folderPath, 2) = "\\" Then
+                IsFolder = GetFSO().FolderExists("\\?\UNC" & Mid$(folderPath, 2))
+            Else
+                IsFolder = GetFSO().FolderExists("\\?\" & folderPath)
+            End If
+        #End If
     End If
     On Error GoTo 0
 End Function
@@ -1717,7 +1739,7 @@ Public Function MoveFolder(ByVal sourcePath As String _
     'Try FSO if available
     #If Windows Then
         On Error Resume Next
-        GetFileSystemObject().MoveFolder sourcePath, destinationPath
+        GetFSO().MoveFolder sourcePath, destinationPath
         If Err.Number = 0 Then
             MoveFolder = True
             Exit Function
