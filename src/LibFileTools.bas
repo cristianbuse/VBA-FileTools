@@ -317,13 +317,13 @@ Public Function CopyFolder(ByVal sourcePath As String _
     Dim fixedDst As String: fixedDst = BuildPath(destinationPath, vbNullString)
     '
     If includeSubFolders Then
-        Dim subFolder As Variant
+        Dim subFolderPath As Variant
         Dim newFolderPath As String
         '
-        For Each subFolder In GetFolders(fixedSrc, True, True, True)
-            newFolderPath = Replace(subFolder, fixedSrc, fixedDst)
+        For Each subFolderPath In GetFolders(fixedSrc, True, True, True)
+            newFolderPath = Replace(subFolderPath, fixedSrc, fixedDst)
             If Not CreateFolder(newFolderPath, failIfExists) Then Exit Function
-        Next subFolder
+        Next subFolderPath
     End If
     '
     Dim filePath As Variant
@@ -583,8 +583,16 @@ Public Function FixPathSeparators(ByVal pathToFix As String) As String
     Const twoSeparators As String = PATH_SEPARATOR & PATH_SEPARATOR
     Dim resultPath As String: resultPath = pathToFix
     '
-    #If Mac = 0 Then 'Replace forward slashes with back slashes for Windows
+    #If Windows Then 'Replace forward slashes with back slashes for Windows
         resultPath = Replace(resultPath, "/", oneSeparator)
+        If Left$(pathToFix, 4) = "\\?\" Then
+            If Mid$(pathToFix, 5, 4) = "UNC\" Then
+                Mid$(pathToFix, 7, 1) = "\"
+                pathToFix = Mid$(pathToFix, 7)
+            Else
+                pathToFix = Mid$(pathToFix, 5)
+            End If
+        End If
         Dim isUNC As Boolean: isUNC = Left$(resultPath, 2) = twoSeparators '\\
     #End If
     '
@@ -676,10 +684,10 @@ Public Function GetFiles(ByVal folderPath As String _
     '
     AddFilesTo collFiles, folderPath, fAttribute
     If includeSubFolders Then
-        Dim subFolder As Variant
-        For Each subFolder In GetFolders(folderPath, True, True, True)
-            AddFilesTo collFiles, subFolder, fAttribute
-        Next subFolder
+        Dim subFolderPath As Variant
+        For Each subFolderPath In GetFolders(folderPath, True, True, True)
+            AddFilesTo collFiles, subFolderPath, fAttribute
+        Next subFolderPath
     End If
     '
     Set GetFiles = collFiles
@@ -694,17 +702,101 @@ End Function
 Private Sub AddFilesTo(ByVal collTarget As Collection _
                      , ByVal folderPath As String _
                      , ByVal fAttribute As VbFileAttribute)
-    Dim fixedPath As String
+    #If Mac Then
+
+    #Else
+        Const maxDirLen As Long = 247
+    #End If
+    Const errBadFileNameOrNumber As Long = 52
     Dim fileName As String
     Dim fullPath As String
+    Dim collTemp As New Collection
+    Dim dirFailed As Boolean
+    Dim v As Variant
+    Dim fixedPath As String: fixedPath = BuildPath(folderPath, vbNullString)
     '
-    fixedPath = BuildPath(folderPath, vbNullString)
+    On Error Resume Next
     fileName = Dir(fixedPath, fAttribute)
-    Do While fileName <> vbNullString
-        collTarget.Add fixedPath & fileName
+    dirFailed = (Err.Number = errBadFileNameOrNumber) 'Unsupported Unicode
+    On Error GoTo 0
+    '
+    Do While LenB(fileName) > 0
+        collTemp.Add fileName
+        If InStr(1, fileName, "?") > 0 Then 'Unsupported Unicode
+            Set collTemp = New Collection
+            dirFailed = True
+            Exit Do
+        End If
         fileName = Dir
     Loop
+    If dirFailed Or Len(fixedPath) > maxDirLen Then
+        #If Mac Then
+
+        #Else
+            Dim fsoFile As Object
+            Dim fsoFolder As Object: Set fsoFolder = GetFSOFolder(fixedPath)
+            '
+            If Not fsoFolder Is Nothing Then
+                With fsoFolder
+                    For Each fsoFile In .Files
+                        collTemp.Add fsoFile.Name
+                    Next fsoFile
+                End With
+            End If
+        #End If
+    End If
+    For Each v In collTemp
+        collTarget.Add fixedPath & v
+    Next v
 End Sub
+
+#If Windows Then
+'*******************************************************************************
+'For long paths FSO fails in either retrieving the folder or it retrieves the
+'   folder but the SubFolders or Files collections are not correctly populated
+'*******************************************************************************
+Private Function GetFSOFolder(ByRef folderPath As String) As Object
+    If Not IsFolder(folderPath) Then Exit Function
+    '
+    Dim fso As Object: Set fso = GetFSO()
+    Dim fsoFolder As Object
+    Dim tempFolder As Object
+    '
+    On Error Resume Next
+    Set fsoFolder = fso.GetFolder(folderPath)
+    If Err.Number <> 0 Then
+        Const ps As String = PATH_SEPARATOR
+        Dim collNames As New Collection
+        Dim i As Long
+        Dim parentPath As String: parentPath = folderPath
+        Dim folderName As String
+        '
+        If Right$(parentPath, 1) = ps Then
+            parentPath = Left$(parentPath, Len(parentPath) - 1)
+        End If
+        Do
+            i = InStrRev(parentPath, ps)
+            folderName = Mid$(parentPath, i + 1)
+            parentPath = Left$(parentPath, i - 1)
+            '
+            If collNames.Count = 0 Then
+                collNames.Add folderName
+            Else
+                collNames.Add folderName, Before:=1
+            End If
+            Err.Clear
+            Set fsoFolder = fso.GetFolder(parentPath)
+        Loop Until Err.Number = 0
+        Do
+            Set fsoFolder = fso.GetFolder(fsoFolder.ShortPath) 'Fix .SubFolders
+            Set fsoFolder = fsoFolder.SubFolders(collNames(1))
+            collNames.Remove 1
+        Loop Until collNames.Count = 0
+    End If
+    On Error GoTo 0
+    Set GetFSOFolder = fso.GetFolder(fsoFolder.ShortPath) 'Fix .Files Bug
+End Function
+#End If
 
 '*******************************************************************************
 'Returns a Collection of all the subfolders (paths) in a specified folder
@@ -751,34 +843,69 @@ Private Sub AddFoldersTo(ByVal collTarget As Collection _
                        , ByVal folderPath As String _
                        , ByVal includeSubFolders As Boolean _
                        , ByVal fAttribute As VbFileAttribute)
+    #If Mac Then
+
+    #Else
+        Const maxDirLen As Long = 247
+    #End If
+    Const errBadFileNameOrNumber As Long = 52
     Const currentFolder As String = "."
     Const parentFolder As String = ".."
-    Dim fixedPath As String
     Dim folderName As String
     Dim fullPath As String
     Dim collFolders As Collection
+    Dim collTemp As New Collection
+    Dim dirFailed As Boolean
+    Dim v As Variant
+    Dim fixedPath As String: fixedPath = BuildPath(folderPath, vbNullString)
     '
     If includeSubFolders Then
         Set collFolders = New Collection 'Temp collection to be iterated later
     Else
         Set collFolders = collTarget 'No recusion so we add directly to target
     End If
-    fixedPath = BuildPath(folderPath, vbNullString)
+    '
+    On Error Resume Next
     folderName = Dir(fixedPath, fAttribute)
-    Do While folderName <> vbNullString
+    dirFailed = (Err.Number = errBadFileNameOrNumber) 'Unsupported Unicode
+    On Error GoTo 0
+    '
+    Do While LenB(folderName) > 0
         If folderName <> currentFolder And folderName <> parentFolder Then
-            fullPath = fixedPath & folderName
-            If IsFolder(fullPath) Then collFolders.Add fullPath
+            collTemp.Add folderName
+            If InStr(1, folderName, "?") > 0 Then 'Unsupported Unicode
+                Set collTemp = New Collection
+                dirFailed = True
+                Exit Do
+            End If
         End If
         folderName = Dir
     Loop
+    If dirFailed Or Len(fixedPath) > maxDirLen Then
+        #If Mac Then
+
+        #Else
+            Dim fsoDir As Object
+            Dim fsoFolder As Object: Set fsoFolder = GetFSOFolder(fixedPath)
+            '
+            If Not fsoFolder Is Nothing Then
+                For Each fsoDir In fsoFolder.SubFolders
+                    collFolders.Add fixedPath & fsoDir.Name
+                Next fsoDir
+            End If
+        #End If
+    End If
+    For Each v In collTemp
+        fullPath = fixedPath & v
+        If IsFolder(fullPath) Then collFolders.Add fullPath
+    Next v
     If includeSubFolders Then
-        Dim subFolder As Variant
+        Dim subFolderPath As Variant
         '
-        For Each subFolder In collFolders
-            collTarget.Add subFolder
-            AddFoldersTo collTarget, subFolder, True, fAttribute
-        Next subFolder
+        For Each subFolderPath In collFolders
+            collTarget.Add subFolderPath
+            AddFoldersTo collTarget, subFolderPath, True, fAttribute
+        Next subFolderPath
     End If
 End Sub
 
@@ -1606,7 +1733,11 @@ End Function
 'Most VBA methods consider valid any path separators with multiple characters
 '*******************************************************************************
 Public Function IsFile(ByRef filePath As String) As Boolean
-    Const maxFileLen As Long = 259
+    #If Mac Then
+
+    #Else
+        Const maxFileLen As Long = 259
+    #End If
     Const errBadFileNameOrNumber As Long = 52
     Dim fAttr As VbFileAttribute
     '
@@ -1614,7 +1745,7 @@ Public Function IsFile(ByRef filePath As String) As Boolean
     fAttr = GetAttr(filePath)
     If Err.Number = errBadFileNameOrNumber Then 'Unicode characters
         #If Mac Then
-            
+
         #Else
             IsFile = GetFSO().FileExists(filePath)
         #End If
@@ -1622,7 +1753,7 @@ Public Function IsFile(ByRef filePath As String) As Boolean
         IsFile = Not CBool(fAttr And vbDirectory)
     ElseIf Len(filePath) > maxFileLen Then
         #If Mac Then
-            
+
         #Else
             If Left$(filePath, 4) = "\\?\" Then
                 IsFile = GetFSO().FileExists(filePath)
@@ -1641,7 +1772,11 @@ End Function
 'Most VBA methods consider valid any path separators with multiple characters
 '*******************************************************************************
 Public Function IsFolder(ByRef folderPath As String) As Boolean
-    Const maxDirLen As Long = 247
+    #If Mac Then
+
+    #Else
+        Const maxDirLen As Long = 247
+    #End If
     Const errBadFileNameOrNumber As Long = 52
     Dim fAttr As VbFileAttribute
     '
@@ -1649,7 +1784,7 @@ Public Function IsFolder(ByRef folderPath As String) As Boolean
     fAttr = GetAttr(folderPath)
     If Err.Number = errBadFileNameOrNumber Then 'Unicode characters
         #If Mac Then
-            
+
         #Else
             IsFolder = GetFSO().FolderExists(folderPath)
         #End If
@@ -1657,7 +1792,7 @@ Public Function IsFolder(ByRef folderPath As String) As Boolean
         IsFolder = CBool(fAttr And vbDirectory)
     ElseIf Len(folderPath) > maxDirLen Then
         #If Mac Then
-            
+
         #Else
             If Left$(folderPath, 4) = "\\?\" Then
                 IsFolder = GetFSO().FolderExists(folderPath)
