@@ -1655,7 +1655,6 @@ Private Function GetODDirs(ByVal filePath As String _
     Dim s As String
     Dim lastRecord As Long
     Dim i As Long
-    Dim j As Long
     Dim cFolders As Collection
     Dim lastFileChange As Date
     Dim currFileChange As Date
@@ -1666,8 +1665,8 @@ Private Function GetODDirs(ByVal filePath As String _
     Dim folderName As String
     Dim idPattern As String
     Dim vbNullByte As String: vbNullByte = ChrB$(0)
-    Dim hFolder As String:    hFolder = ChrB$(&H2) 'x02
-    Dim hCheck As String * 4: Mid$(hCheck, 1) = ChrW$(&H1) 'x01000000
+    Dim hFolder As String:    hFolder = ChrB$(2) 'x02
+    Dim hCheck As String * 4: MidB$(hCheck, 1) = ChrB$(1) 'x01000000
     '
     idPattern = Replace(Space$(16), " ", "[a-fA-F0-9]") & "*"
     For stepSize = 16 To 8 Step -8
@@ -1696,19 +1695,20 @@ Private Function GetODDirs(ByVal filePath As String _
                     '
                     i = i + fNameOffset
                     If folderID Like idPattern And parentID Like idPattern Then
-                        j = (i + 1) \ 2
-                        bytes = InStr(j, s, nameEnd) * 2 - i - 1
+                        bytes = InStr((i + 1) \ 2, s, nameEnd) * 2 - i - 1
                         #If Mac Then
-                            Do While bytes Mod 4 > 0
-                                If bytes > maxDirName * 4 Then Exit Do
-                                j = j + 1
-                                bytes = InStr(j, s, nameEnd) * 2 - i - 1
+                            Do While bytes Mod 4 > 0 And bytes > 0
+                                If bytes > maxDirName * 4 Then
+                                    bytes = maxDirName * 4
+                                    Exit Do
+                                End If
+                                bytes = InStr((i + bytes + 1) \ 2 + 1, s, nameEnd) _
+                                      * 2 - i - 1
                             Loop
-                            bytes = Clamp(bytes, 0, maxDirName * 4)
                         #Else
-                            bytes = Clamp(bytes, 0, maxDirName * 2)
+                            If bytes > maxDirName * 2 Then bytes = maxDirName * 2
                         #End If
-                        If i + bytes - 1 > chunkSize Then 'Next chunk
+                        If bytes < 0 Or i + bytes - 1 > chunkSize Then 'Next chunk
                             i = i - checkToName
                             Exit Do
                         End If
