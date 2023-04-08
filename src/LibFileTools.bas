@@ -703,7 +703,7 @@ Private Sub AddFilesTo(ByVal collTarget As Collection _
                      , ByVal folderPath As String _
                      , ByVal fAttribute As VbFileAttribute)
     #If Mac Then
-
+        Const maxDirLen As Long = 247 'To be updated
     #Else
         Const maxDirLen As Long = 247
     #End If
@@ -844,7 +844,7 @@ Private Sub AddFoldersTo(ByVal collTarget As Collection _
                        , ByVal includeSubFolders As Boolean _
                        , ByVal fAttribute As VbFileAttribute)
     #If Mac Then
-
+        Const maxDirLen As Long = 247 'To be updated
     #Else
         Const maxDirLen As Long = 247
     #End If
@@ -1644,11 +1644,18 @@ Private Function GetODDirs(ByVal filePath As String _
     Const fNameOffset As Long = 121
     Const checkToName As Long = hCheckSize + idSize + fNameOffset + fNameOffset
     Const chunkSize As Long = &H100000 '1MB
+    Const maxFileName As Long = 255
+    #If Mac Then
+        Const nameEnd As String = vbNullChar & vbNullChar
+    #Else
+        Const nameEnd As String = vbNullChar
+    #End If
     '
     Dim b(1 To chunkSize) As Byte
     Dim s As String
     Dim lastRecord As Long
     Dim i As Long
+    Dim j As Long
     Dim cFolders As Collection
     Dim lastFileChange As Date
     Dim currFileChange As Date
@@ -1657,15 +1664,12 @@ Private Function GetODDirs(ByVal filePath As String _
     Dim folderID As String
     Dim parentID As String
     Dim folderName As String
-    Dim vbNullByte As String: vbNullByte = MidB$(vbNullChar, 1, 1)
-    Dim hFolder As String:    hFolder = StrConv(Chr$(&H2), vbFromUnicode) 'x02
-    Dim hCheck As String:     hCheck = ChrW$(&H1) & String(3, vbNullChar) 'x01..
-    Dim nameEnd As String:    nameEnd = vbNullChar & ChrW$(&HABAB&)
+    Dim idPattern As String
+    Dim vbNullByte As String: vbNullByte = ChrB$(0)
+    Dim hFolder As String:    hFolder = ChrB$(&H2) 'x02
+    Dim hCheck As String * 4: Mid$(hCheck, 1) = ChrW$(&H1) 'x01000000
     '
-    #If Mac Then
-        nameEnd = vbNullChar & nameEnd & ChrW$(&HABAB&)
-    #End If
-    '
+    idPattern = Replace(Space$(16), " ", "[a-fA-F0-9]") & "*"
     For stepSize = 16 To 8 Step -8
         lastFileChange = 0
         Do
@@ -1691,12 +1695,23 @@ Private Function GetODDirs(ByVal filePath As String _
                     parentID = StrConv(MidB$(s, i, bytes), vbUnicode)
                     '
                     i = i + fNameOffset
-                    bytes = -Int(-(InStrB(i, s, nameEnd) - i) / 2) * 2
-                    If bytes < 0 Or i + bytes - 1 > chunkSize Then 'Next chunk
-                        i = i - checkToName
-                        Exit Do
-                    End If
-                    If LenB(folderID) > 0 And LenB(parentID) > 0 Then
+                    If folderID Like idPattern And parentID Like idPattern Then
+                        j = (i + 1) \ 2
+                        bytes = InStr(j, s, nameEnd) * 2 - i - 1
+                        #If Mac Then
+                            Do While bytes Mod 4 > 0
+                                If bytes > maxFileName * 4 Then Exit Do
+                                j = j + 1
+                                bytes = InStr(j, s, nameEnd) * 2 - i - 1
+                            Loop
+                            bytes = Clamp(bytes, 0, maxFileName * 4)
+                        #Else
+                            bytes = Clamp(bytes, 0, maxFileName * 2)
+                        #End If
+                        If i + bytes - 1 > chunkSize Then  'Next chunk
+                            i = i - checkToName
+                            Exit Do
+                        End If
                         folderName = MidB$(s, i, bytes)
                         #If Mac Then
                             folderName = ConvertText(folderName, codeUTF16LE _
@@ -1709,7 +1724,9 @@ Private Function GetODDirs(ByVal filePath As String _
                 i = InStrB(i + 1, s, hCheck)
             Loop
             lastRecord = lastRecord + chunkSize - stepSize
-            If i > stepSize Then lastRecord = lastRecord - chunkSize + i - 1
+            If i > stepSize Then
+                lastRecord = lastRecord - chunkSize + (i \ 2) * 2
+            End If
         Loop Until lastRecord > size
         If cFolders.Count > 0 Then Exit For
     Next stepSize
@@ -1734,7 +1751,7 @@ End Function
 '*******************************************************************************
 Public Function IsFile(ByRef filePath As String) As Boolean
     #If Mac Then
-
+        Const maxFileLen As Long = 259 'To be updated
     #Else
         Const maxFileLen As Long = 259
     #End If
@@ -1773,7 +1790,7 @@ End Function
 '*******************************************************************************
 Public Function IsFolder(ByRef folderPath As String) As Boolean
     #If Mac Then
-
+        Const maxDirLen As Long = 247 'To be updated
     #Else
         Const maxDirLen As Long = 247
     #End If
