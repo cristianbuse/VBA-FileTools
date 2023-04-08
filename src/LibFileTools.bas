@@ -1644,7 +1644,7 @@ Private Function GetODDirs(ByVal filePath As String _
     Const fNameOffset As Long = 121
     Const checkToName As Long = hCheckSize + idSize + fNameOffset + fNameOffset
     Const chunkSize As Long = &H100000 '1MB
-    Const maxFileName As Long = 255
+    Const maxDirName As Long = 255
     #If Mac Then
         Const nameEnd As String = vbNullChar & vbNullChar
     #Else
@@ -1700,15 +1700,15 @@ Private Function GetODDirs(ByVal filePath As String _
                         bytes = InStr(j, s, nameEnd) * 2 - i - 1
                         #If Mac Then
                             Do While bytes Mod 4 > 0
-                                If bytes > maxFileName * 4 Then Exit Do
+                                If bytes > maxDirName * 4 Then Exit Do
                                 j = j + 1
                                 bytes = InStr(j, s, nameEnd) * 2 - i - 1
                             Loop
-                            bytes = Clamp(bytes, 0, maxFileName * 4)
+                            bytes = Clamp(bytes, 0, maxDirName * 4)
                         #Else
-                            bytes = Clamp(bytes, 0, maxFileName * 2)
+                            bytes = Clamp(bytes, 0, maxDirName * 2)
                         #End If
-                        If i + bytes - 1 > chunkSize Then  'Next chunk
+                        If i + bytes - 1 > chunkSize Then 'Next chunk
                             i = i - checkToName
                             Exit Do
                         End If
