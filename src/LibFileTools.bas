@@ -83,6 +83,11 @@ Option Private Module
         Private Declare PtrSafe Function LookupAccountSid Lib "advapi32.dll" Alias "LookupAccountSidA" (ByVal lpSystemName As String, ByVal Sid As LongPtr, ByVal Name As String, cbName As Long, ByVal ReferencedDomainName As String, cbReferencedDomainName As Long, peUse As LongPtr) As Long
         Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
         Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpDefaultChar As LongPtr, ByVal lpUsedDefaultChar As LongPtr) As Long
+        Private Declare PtrSafe Function SHGetKnownFolderPath Lib "Shell32" (ByRef rfid As GUID, ByVal dwFlags As Long, ByVal hToken As Long, ByRef pszPath As LongPtr) As Long
+        Private Declare PtrSafe Function CLSIDFromString Lib "ole32" (ByVal lpszGuid As LongPtr, ByRef pGuid As GUID) As Long
+        Private Declare PtrSafe Function lstrlenW Lib "kernel32" (ByVal lpString As LongPtr) As Long
+        Private Declare PtrSafe Sub CoTaskMemFree Lib "ole32" (ByVal hMem As LongPtr)
+        Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByVal Destination As LongPtr, ByVal source As LongPtr, ByVal length As Long)
     #Else
         Private Declare Function CopyFileA Lib "kernel32" (ByVal lpExistingFileName As String, ByVal lpNewFileName As String, ByVal bFailIfExists As Long) As Long
         Private Declare Function DeleteFileA Lib "kernel32" (ByVal lpFileName As String) As Long
@@ -91,6 +96,11 @@ Option Private Module
         Private Declare Function LookupAccountSid Lib "advapi32.dll" Alias "LookupAccountSidA" (ByVal lpSystemName As String, ByVal Sid As Long, ByVal Name As String, cbName As Long, ByVal ReferencedDomainName As String, cbReferencedDomainName As Long, peUse As Long) As Long
         Private Declare Function MultiByteToWideChar Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpMultiByteStr As Long, ByVal cchMultiByte As Long, ByVal lpWideCharStr As Long, ByVal cchWideChar As Long) As Long
         Private Declare Function WideCharToMultiByte Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As Long, ByVal cchWideChar As Long, ByVal lpMultiByteStr As Long, ByVal cchMultiByte As Long, ByVal lpDefaultChar As Long, ByVal lpUsedDefaultChar As Long) As Long
+        Private Declare Function SHGetKnownFolderPath Lib "shell32" (rfid As Any, ByVal dwFlags As Long, ByVal hToken As Long, ppszPath As Long) As Long
+        Private Declare Function CLSIDFromString Lib "ole32" (ByVal lpszGuid As Long, pGuid As Any) As Long
+        Private Declare Function lstrlenW Lib "kernel32" (ByVal lpString As Long) As Long
+        Private Declare Sub CoTaskMemFree Lib "ole32" (ByVal pv As Long)
+        Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal length As Long)
     #End If
 #End If
 
@@ -117,6 +127,15 @@ Private Type DRIVE_INFO
     fileSystem As String
     shareName As String
 End Type
+
+#If Windows Then
+    Private Type GUID
+        Data1 As Long
+        Data2 As Integer
+        Data3 As Integer
+        Data4(7) As Byte
+    End Type
+#End If
 
 Private Type ONEDRIVE_PROVIDER
     webPath As String
@@ -157,6 +176,20 @@ End Type
 #Else
     Public Const PATH_SEPARATOR = "\"
 #End If
+
+#If Windows Then
+    Private Const E_FAIL                        As Long = &H80004005
+    Private Const E_INVALIDARG                  As Long = &H80070057
+    Private Const HRESULT_ERROR_FILE_NOT_FOUND  As Long = &H80070002
+    Private Const HRESULT_ERROR_PATH_NOT_FOUND  As Long = &H80070003
+    Private Const HRESULT_ERROR_ACCESS_DENIED   As Long = &H80070005
+    Private Const HRESULT_ERROR_NOT_FOUND       As Long = &H80070490
+#End If
+
+Private Const vbErrInternalError            As Long = 51
+Private Const vbErrPathFileAccessError      As Long = 75
+Private Const vbErrPathNotFound             As Long = 76
+Private Const vbErrComponentNotRegistered   As Long = 336
 
 Private m_providers As ONEDRIVE_PROVIDERS
 #If Mac Then
@@ -795,6 +828,87 @@ Private Function GetFSOFolder(ByRef folderPath As String) As Object
     End If
     On Error GoTo 0
     Set GetFSOFolder = fso.GetFolder(fsoFolder.ShortPath) 'Fix .Files Bug
+End Function
+#End If
+
+#If Windows Then
+'*******************************************************************************
+'Gets path of a 'known folder' using the respective 'FOLDERID' on Windows
+'If 'createIfNotExists' is set to true, the windows API function will be called
+'   with flags 'KF_FLAG_CREATE' and 'KF_FLAG_INIT' and will create the folder
+'   if it does not currently exist on the system.
+'The function can raise the following errors:
+'   - 5:   (Invalid procedure call) If the passed 'knownFolderID' is not a valid
+'          CLSID.
+'   - 76:  (Path not found) Will only be raised if 'createIfNotExists' = False
+'          and the function fails to find the path.
+'   - 75:  (Path/File access error) Raised if function failed to find a path,
+'          either because the specified FOLDERID is for a virtual known folder,
+'          or because there are insufficient permissions to create the folder
+'   - 336: (Component not correctly registered) Raised if the path, or the known
+'          folder id itself are not registered in the windows registry.
+'   - 51:  (Internal error) If an unexpected error occurs which is likely a
+'          result of an invalid implementation in this function.
+'*******************************************************************************
+Public Function GetKnownFolderWin(ByVal knownFolderID As String, _
+                         Optional ByVal createIfNotExists As Boolean = False) _
+                                  As String
+    Const methodName As String = "GetKnownFolderWin"
+    Dim id As GUID
+    '
+    If CLSIDFromString(StrPtr(knownFolderID), id) <> 0 Then _
+        Err.Raise 5, methodName, "'" & knownFolderID & "' is not a valid CLSID."
+    '
+    Const KF_FLAG_CREATE As Long = &H8000&  'Other possible flags are not really
+    Const KF_FLAG_INIT   As Long = &H800&   '  relevant for LibFileTools
+    Dim dwFlags As Long
+    If createIfNotExists Then dwFlags = dwFlags Or KF_FLAG_CREATE Or KF_FLAG_INIT
+     '
+    Dim pszPath As LongPtr
+    Dim retCode As Long: retCode = SHGetKnownFolderPath(id, dwFlags, 0, pszPath)
+    '
+    If retCode = 0 Then GetKnownFolderWin = GetBstrFromWideStringPtr(pszPath)
+    CoTaskMemFree pszPath 'Memory must be freed by calling process, even on fail
+    '
+    'The remaining part is only concerned with error handling.
+    Const genericMsg As String = "Known folder path not found on this device."
+    Const callAgainPrompt As String = " You can try calling '" & methodName _
+                                      & "' again with 'createIfNotExists:=True'."
+    Select Case retCode
+        Case E_FAIL
+            Err.Raise vbErrPathFileAccessError, methodName, "Error getting " & _
+                "known folder path. Known folder might be of category '" & _
+                "KF_CATEGORY_VIRTUAL' which means it can not have a path."
+        Case E_INVALIDARG
+            Err.Raise vbErrInternalError, methodName, "API call invalid. " & _
+                                          "Library implementation erroneous"
+        Case HRESULT_ERROR_FILE_NOT_FOUND
+            If createIfNotExists Then
+                Err.Raise vbErrInternalError, methodName, genericMsg & _
+                    " The specified KnownFolderID might not exist."
+            Else
+                Err.Raise vbErrPathNotFound, methodName, genericMsg & _
+                                                         callAgainPrompt
+            End If
+        Case HRESULT_ERROR_PATH_NOT_FOUND, HRESULT_ERROR_NOT_FOUND
+            Err.Raise vbErrComponentNotRegistered, methodName, genericMsg & _
+                "The KnownFolderID might be registered, but no path " & _
+                "seems to be registered for it."
+        Case HRESULT_ERROR_ACCESS_DENIED
+            Err.Raise vbErrPathFileAccessError, methodName, "Error getting " & _
+                "known folder path. Access denied."
+        Case Is <> 0 'Else
+            Err.Raise vbErrInternalError, methodName, "Unknown error code."
+    End Select
+    '
+    If GetKnownFolderWin = vbNullString Then
+        If createIfNotExists Then
+            Err.Raise vbErrComponentNotRegistered, methodName, genericMsg & _
+                "The KnownFolderID might not be registered."
+        Else
+            Err.Raise vbErrPathNotFound, methodName, genericMsg & callAgainPrompt
+        End If
+    End If
 End Function
 #End If
 
