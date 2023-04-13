@@ -29,8 +29,10 @@ Public/Exposed methods:
  - GetFileOwner      (Windows only)
  - GetFiles
  - GetFolders
+ - GetKnownFolderWin (Windows only)
  - GetLocalPath      (covers UNC/OneDrive/SharePoint paths)
  - GetRemotePath     (covers UNC/OneDrive/SharePoint paths)
+ - GetSpecialFolderMac (Mac only)
  - IsFile
  - IsFolder
  - IsFolderEditable

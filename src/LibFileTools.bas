@@ -1313,7 +1313,7 @@ Public Function GetSpecialFolderMac(ByVal macSpecialFolderConstant As String, _
                            Optional ByVal forceNonSandboxedPath As Boolean = True, _
                            Optional ByVal createIfNotExists As Boolean = False) As String
     Const methodName As String = "GetSpecialFolderMac"
-    
+    '
     Select Case LCase$(domainName)
     Case "system", "local", "network", "user", "classic", "" 'Fine
     Case Else
@@ -1329,10 +1329,9 @@ Public Function GetSpecialFolderMac(ByVal macSpecialFolderConstant As String, _
             "| 'classic' | -||- in the Classic Mac OS system folder|" & vbLf & _
             "|           | (Only meaningful on systems that support Classic) |"
     End Select
-            
+    '
     Dim domainStr As String
     domainStr = IIf(domainName = "", "", " from " & domainName & " domain")
-    
     Dim folderCreationStr As String
     folderCreationStr = IIf(createIfNotExists, " with folder creation", _
                                                " without folder creation")
@@ -1340,30 +1339,29 @@ Public Function GetSpecialFolderMac(ByVal macSpecialFolderConstant As String, _
     Dim app As Object:      Set app = Application
     Dim inExcel As Boolean: inExcel = (app.Name = "Microsoft Excel")
     On Error GoTo 0
-    
+    '
     Dim cmd As String: cmd = "return POSIX path of (path to " & _
         macSpecialFolderConstant & domainStr & folderCreationStr & ") as string"
-                             
+    '
     If inExcel Then 'In old excel version
         If Int(val(app.version)) <= 14 Then 'You run Mac Excel 2011, change cmd
             cmd = "return (path to " & macSpecialFolderConstant & domainStr & _
                   folderCreationStr & ") as string"
         End If
     End If
-    
+    '
     On Error GoTo PathDoesNotExist
     GetSpecialFolderMac = MacScript(cmd)
     On Error GoTo 0
-    
+    '
     If forceNonSandboxedPath Then
         Dim sboxPath As String:  sboxPath = Environ("HOME")
         Dim sboxRelPath As String
         sboxRelPath = Mid(sboxPath, InStrRev(sboxPath, "/Library/Containers/"))
-        
         GetSpecialFolderMac = Replace(GetSpecialFolderMac, _
                                       sboxRelPath, "", , 1, vbTextCompare)
     End If
-    
+    '
     If GetSpecialFolderMac <> vbNullString Then Exit Function
 PathDoesNotExist:
     Const callAgainPrompt As String = " You can try calling '" & methodName _
