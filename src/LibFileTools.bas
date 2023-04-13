@@ -49,6 +49,7 @@ Attribute VB_Name = "LibFileTools"
 ''    - GetFileOwner      (Windows only)
 ''    - GetFiles
 ''    - GetFolders
+''    - GetKnownFolderWin (Windows only)
 ''    - GetLocalPath
 ''    - GetRemotePath
 ''    - IsFile
@@ -1060,6 +1061,14 @@ Public Function GetKnownFolderWin(ByVal knownFolderID As String, _
         Else
             Err.Raise vbErrPathNotFound, methodName, genericMsg & callAgainPrompt
         End If
+    End If
+End Function
+Private Function GetBstrFromWideStringPtr(ByVal lpwString As LongPtr) As String
+    Dim length As Long
+    If lpwString <> 0 Then length = lstrlenW(lpwString)
+    If length <> 0 Then
+        GetBstrFromWideStringPtr = Space$(length)
+        CopyMemory StrPtr(GetBstrFromWideStringPtr), lpwString, length * 2
     End If
 End Function
 #End If
