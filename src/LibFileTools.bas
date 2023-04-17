@@ -52,6 +52,7 @@ Attribute VB_Name = "LibFileTools"
 ''    - GetKnownFolderWin (Windows only)
 ''    - GetLocalPath
 ''    - GetRemotePath
+''    - GetSpecialFolderMac (Mac only)
 ''    - IsFile
 ''    - IsFolder
 ''    - IsFolderEditable
@@ -122,7 +123,66 @@ Public Enum PageCode
 #End If
 End Enum
 
-#If Windows Then
+#If Mac Then
+    'Special folder constants for Mac
+    'Source: https://developer.apple.com/library/archive/documentation/AppleScript/Conceptual/AppleScriptLangGuide/reference/ASLR_cmds.html
+    Public Const SFC_ApplicationSupport    As String = "application support"
+    Public Const SFC_ApplicationsFolder    As String = "applications folder"
+    Public Const SFC_Desktop               As String = "desktop"
+    Public Const SFC_DesktopPicturesFolder As String = "desktop pictures folder"
+    Public Const SFC_DocumentsFolder       As String = "documents folder"
+    Public Const SFC_DownloadsFolder       As String = "downloads folder"
+    Public Const SFC_FavoritesFolder       As String = "favorites folder"
+    Public Const SFC_FolderActionScripts   As String = "Folder Action scripts"
+    Public Const SFC_Fonts                 As String = "fonts"
+    Public Const SFC_Help                  As String = "help"
+    Public Const SFC_HomeFolder            As String = "home folder"
+    Public Const SFC_InternetPlugins       As String = "internet plugins"
+    Public Const SFC_KeychainFolder        As String = "keychain folder"
+    Public Const SFC_LibraryFolder         As String = "library folder"
+    Public Const SFC_ModemScripts          As String = "modem scripts"
+    Public Const SFC_MoviesFolder          As String = "movies folder"
+    Public Const SFC_MusicFolder           As String = "music folder"
+    Public Const SFC_PicturesFolder        As String = "pictures folder"
+    Public Const SFC_Preferences           As String = "preferences"
+    Public Const SFC_PrinterDescriptions   As String = "printer descriptions"
+    Public Const SFC_PublicFolder          As String = "public folder"
+    Public Const SFC_ScriptingAdditions    As String = "scripting additions"
+    Public Const SFC_ScriptsFolder         As String = "scripts folder"
+    Public Const SFC_ServicesFolder        As String = "services folder"
+    Public Const SFC_SharedDocuments       As String = "shared documents"
+    Public Const SFC_SharedLibraries       As String = "shared libraries"
+    Public Const SFC_SitesFolder           As String = "sites folder"
+    Public Const SFC_StartupDisk           As String = "startup disk"
+    Public Const SFC_StartupItems          As String = "startup items"
+    Public Const SFC_SystemFolder          As String = "system folder"
+    Public Const SFC_SystemPreferences     As String = "system preferences"
+    Public Const SFC_TemporaryItems        As String = "temporary items"
+    Public Const SFC_Trash                 As String = "trash"
+    Public Const SFC_UsersFolder           As String = "users folder"
+    Public Const SFC_UtilitiesFolder       As String = "utilities folder"
+    Public Const SFC_WorkflowsFolder       As String = "workflows folder"
+                                                   
+    'Classic domain only
+    Public Const SFC_AppleMenu             As String = "apple menu"
+    Public Const SFC_ControlPanels         As String = "control panels"
+    Public Const SFC_ControlStripModules   As String = "control strip modules"
+    Public Const SFC_Extensions            As String = "extensions"
+    Public Const SFC_LauncherItemsFolder   As String = "launcher items folder"
+    Public Const SFC_PrinterDrivers        As String = "printer drivers"
+    Public Const SFC_Printmonitor          As String = "printmonitor"
+    Public Const SFC_ShutdownFolder        As String = "shutdown folder"
+    Public Const SFC_SpeakableItems        As String = "speakable items"
+    Public Const SFC_Stationery            As String = "stationery"
+    Public Const SFC_Voices                As String = "voices"
+    
+    'The following domain names are valid:
+    Public Const DOMAIN_System  As String = "system"
+    Public Const DOMAIN_Local   As String = "local"
+    Public Const DOMAIN_Network As String = "network"
+    Public Const DOMAIN_User    As String = "user"
+    Public Const DOMAIN_Classic As String = "classic"
+#Else
     'List of standard KnownFolderIDs, declarations for VBA
     'Source: KnownFolders.h (Windows 11 SDK 10.0.22621.0) (sorted alphabetically)
     'Note: Most of the FOLDERIDs that are available on a specific device seem to
@@ -1004,8 +1064,7 @@ End Function
 '          result of an invalid implementation in this function.
 '*******************************************************************************
 Public Function GetKnownFolderWin(ByVal knownFolderID As String, _
-                         Optional ByVal createIfNotExists As Boolean = False) _
-                                  As String
+                         Optional ByVal createIfNotExists As Boolean = False) As String
     Const methodName As String = "GetKnownFolderWin"
     Dim id As GUID
     '
@@ -1231,6 +1290,95 @@ Public Function GetRemotePath(ByVal fullPath As String _
     #End If
     GetRemotePath = GetOneDriveWebPath(fullPath, rebuildCache)
 End Function
+
+#If Mac Then
+'*******************************************************************************
+'Gets path of a 'special folder' using the respective 'folder constant' on Mac
+'If 'createIfNotExists' is set to true, the function will try to create the
+'   folder if it does not currently exist on the system. Note that this argument
+'   ignores the 'forceNonSandboxedPath' option, and it can happen that the
+'   folder gets created in the sandboxed location and the function returns a non
+'   sandboxed path. This behavior can not be avoided without creating access
+'   requests, therefore it should be taken into account by the user instead of
+'   the library.
+'The function can raise the following errors:
+'   - 5:   (Invalid procedure call) If the passed 'domainName' is invalid.
+'   - 76:  (Path not found) Will only be raised if 'createIfNotExists' = False
+'          and the function fails to find the path.
+'   - 75:  (Path/File access error) Raised if function fails to find a path,
+'          and 'createIfNotExists' = True
+'*******************************************************************************
+Public Function GetSpecialFolderMac(ByVal macSpecialFolderConstant As String, _
+                           Optional ByVal domainName As String = "", _
+                           Optional ByVal forceNonSandboxedPath As Boolean = True, _
+                           Optional ByVal createIfNotExists As Boolean = False) As String
+    Const methodName As String = "GetSpecialFolderMac"
+    '
+    Select Case LCase$(domainName)
+    Case "system", "local", "network", "user", "classic", "" 'Fine
+    Case Else
+        Err.Raise 5, methodName, _
+            "Invalid domain name passed to " & methodName & ": " & domainName _
+            & vbNewLine & "Possible Domains are:" & vbNewLine & _
+            "| DomainName| Location                                |" & vbLf & _
+            "|-----------|-----------------------------------------|" & vbLf & _
+            "| 'system'  | A folder in '/System/'                  |" & vbLf & _
+            "| 'local'   | A folder in '/Library/'                 |" & vbLf & _
+            "| 'network' | A folder in '/Network/'                 |" & vbLf & _
+            "| 'user'    | A folder in '~' (the user’s home folder)|" & vbLf & _
+            "| 'classic' | -||- in the Classic Mac OS system folder|" & vbLf & _
+            "|           | (Only meaningful on systems that support Classic) |"
+    End Select
+    '
+    Dim domainStr As String
+    domainStr = IIf(domainName = "", "", " from " & domainName & " domain")
+    Dim folderCreationStr As String
+    folderCreationStr = IIf(createIfNotExists, " with folder creation", _
+                                               " without folder creation")
+    On Error Resume Next
+    Dim app As Object:      Set app = Application
+    Dim inExcel As Boolean: inExcel = (app.Name = "Microsoft Excel")
+    On Error GoTo 0
+    '
+    Dim cmd As String: cmd = "return POSIX path of (path to " & _
+        macSpecialFolderConstant & domainStr & folderCreationStr & ") as string"
+    '
+    If inExcel Then 'In old excel version
+        If Int(val(app.version)) <= 14 Then 'You run Mac Excel 2011, change cmd
+            cmd = "return (path to " & macSpecialFolderConstant & domainStr & _
+                  folderCreationStr & ") as string"
+        End If
+    End If
+    '
+    On Error GoTo PathDoesNotExist
+    GetSpecialFolderMac = MacScript(cmd)
+    On Error GoTo 0
+    '
+    If forceNonSandboxedPath Then
+        Dim sboxPath As String:  sboxPath = Environ("HOME")
+        Dim sboxRelPath As String
+        sboxRelPath = Mid(sboxPath, InStrRev(sboxPath, "/Library/Containers/"))
+        GetSpecialFolderMac = Replace(GetSpecialFolderMac, _
+                                      sboxRelPath, "", , 1, vbTextCompare)
+    End If
+    '
+    If GetSpecialFolderMac <> vbNullString Then Exit Function
+PathDoesNotExist:
+    Const callAgainPrompt As String = " You can try calling '" & methodName _
+                                      & "' again with 'createIfNotExists:=True'."
+    If createIfNotExists Then
+        Err.Raise vbErrPathFileAccessError, methodName, _
+            "Special folder '" & macSpecialFolderConstant & "' is not " & _
+            "available" & IIf(domainName = "", " or needs a specific domain.", _
+                              " in the '" & domainName & "' domain.")
+    Else
+        Err.Raise vbErrPathNotFound, methodName, _
+            "Special folder '" & macSpecialFolderConstant & "' is not " & _
+            "available" & IIf(domainName = "", " or needs a specific domain.", _
+            " in the '" & domainName & "' domain.") & callAgainPrompt
+    End If
+End Function
+#End If
 
 '*******************************************************************************
 'Returns basic drive information about a full path
