@@ -818,44 +818,59 @@ End Function
 #End If
 
 '*******************************************************************************
-'Fixes path separators for a file/folder path
+'Fixes path separators for a path
 'Windows example: replace \\, \\\, \\\\, \\//, \/\/\, /, // etc. with a single \
 'Note that on a Mac, the network paths (smb:// or afp://) need to be mounted and
 '   are only valid via the mounted volumes: /volumes/VolumeName/... unlike on a
-'   PC where \\share\data\... is a perfectly valid file/folder path
+'   PC where \\share\data\... is a valid file/folder path (UNC)
 '*******************************************************************************
-Public Function FixPathSeparators(ByVal pathToFix As String) As String
-    Const oneSeparator As String = PATH_SEPARATOR
-    Const twoSeparators As String = PATH_SEPARATOR & PATH_SEPARATOR
-    Dim resultPath As String: resultPath = pathToFix
+Public Function FixPathSeparators(ByRef pathToFix As String) As String
+    Const ps As String = PATH_SEPARATOR
+    Dim resultPath As String
     '
-    #If Windows Then 'Replace forward slashes with back slashes for Windows
-        resultPath = Replace(resultPath, "/", oneSeparator)
-        If Left$(pathToFix, 4) = "\\?\" Then
-            If Mid$(pathToFix, 5, 4) = "UNC\" Then
-                Mid$(pathToFix, 7, 1) = "\"
-                pathToFix = Mid$(pathToFix, 7)
+    If LenB(pathToFix) = 0 Then Exit Function
+    #If Mac Then
+        resultPath = Replace(pathToFix, "\", ps)
+    #Else
+        resultPath = Replace(pathToFix, "/", ps)
+        If Left$(resultPath, 4) = "\\?\" Then
+            If Mid$(resultPath, 5, 4) = "UNC\" Then
+                Mid$(resultPath, 7, 1) = "\"
+                resultPath = Mid$(resultPath, 7)
             Else
-                pathToFix = Mid$(pathToFix, 5)
+                resultPath = Mid$(resultPath, 5)
             End If
         End If
-        Dim isUNC As Boolean: isUNC = Left$(resultPath, 2) = twoSeparators '\\
+        Dim isUNC As Boolean: isUNC = Left$(resultPath, 2) = "\\"
     #End If
     '
     'Replace repeated separators e.g. replace \\\\\ with \
-    Dim previousLength As Long
-    Dim currentLength As Long: currentLength = Len(resultPath)
-    Do
-        previousLength = currentLength
-        resultPath = Replace(resultPath, twoSeparators, oneSeparator)
-        currentLength = Len(resultPath)
-    Loop Until previousLength = currentLength
+    Dim startPos As Long
+    Dim currPos As Long
+    Dim prevPos As Long
+    Dim diff As Long
+    Dim i As Long
     '
     #If Windows Then
-        If isUNC Then resultPath = oneSeparator & resultPath
+        If isUNC Then currPos = 2 'Skip the leading UNC prefix: \\
     #End If
-    '
     FixPathSeparators = resultPath
+    Do
+        prevPos = currPos
+        currPos = InStr(currPos + 1, resultPath, ps)
+        If startPos = 0 Then startPos = prevPos + 1
+        If currPos - prevPos <= 1 Then
+            diff = currPos - startPos
+            If currPos = 0 Then diff = diff + Len(resultPath) + 1
+            If startPos * Sgn(i * diff) > 1 Then
+                Mid$(FixPathSeparators, i) = Mid$(resultPath, startPos, diff)
+                i = i + diff
+            End If
+            If i = 0 Then i = (startPos + diff) * Sgn(prevPos)
+            startPos = 0
+        End If
+    Loop Until currPos = 0
+    If i > 1 Then FixPathSeparators = Left$(FixPathSeparators, i - 1)
 End Function
 
 '*******************************************************************************
