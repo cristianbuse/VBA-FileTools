@@ -720,8 +720,19 @@ End Function
 '*******************************************************************************
 #If Mac Then
 Public Function FixFileName(ByRef nameToFix As String) As String
-    FixFileName = Replace(nameToFix, ":", vbNullString)
-    FixFileName = Replace(FixFileName, "/", vbNullString)
+    Dim resultName As String
+    Dim i As Long: i = 1
+    '
+    resultName = Replace(nameToFix, ":", vbNullString)
+    resultName = Replace(resultName, "/", vbNullString)
+    '
+    'Names cannot start with a space character
+    Do While Mid$(resultName, i, 1) = "."
+        i = i + 1
+    Loop
+    If i > 1 Then resultName = Mid$(resultName, i)
+    '
+    FixFileName = resultName
 End Function
 #Else
 Public Function FixFileName(ByRef nameToFix As String _
@@ -736,17 +747,15 @@ Public Function FixFileName(ByRef nameToFix As String _
     'Names cannot end in a space or a period character
     Const dotSpace As String = ". "
     Dim nameLen As Long: nameLen = Len(resultName)
-    Dim currIndex As Long
+    Dim i As Long:       i = nameLen
     '
-    currIndex = nameLen
-    If currIndex > 0 Then
-        Do While InStr(1, dotSpace, Mid$(resultName, currIndex, 1)) > 0
-            currIndex = currIndex - 1
-            If currIndex = 0 Then Exit Do
-        Loop
-    End If
-    If currIndex < nameLen Then resultName = Left$(resultName, currIndex)
-    If IsReservedName(resultName) Then resultName = vbNullString
+    If i = 0 Then Exit Function
+    Do While InStr(1, dotSpace, Mid$(resultName, i, 1)) > 0
+        i = i - 1
+        If i = 0 Then Exit Function
+    Loop
+    If i < nameLen Then resultName = Left$(resultName, i)
+    If IsReservedName(resultName) Then Exit Function
     '
     FixFileName = resultName
 End Function
