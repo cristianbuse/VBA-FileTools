@@ -479,23 +479,8 @@ End Function
 '*******************************************************************************
 'Combines a folder path with a file/folder name or an incomplete path (ex. \a\b)
 '*******************************************************************************
-Public Function BuildPath(ByVal folderPath As String _
-                        , ByVal fsName As String) As String
-    Const parentFolder As String = ".." & PATH_SEPARATOR
-    '
-    fsName = FixPathSeparators(fsName)
-    If Left$(fsName, 3) = parentFolder Then
-        Dim sepIndex As Long
-        '
-        folderPath = FixPathSeparators(folderPath)
-        Do
-            sepIndex = InStrRev(folderPath, PATH_SEPARATOR, Len(folderPath) - 1)
-            If sepIndex < 3 Then Exit Do
-            '
-            folderPath = Left$(folderPath, sepIndex)
-            fsName = Right$(fsName, Len(fsName) - 3)
-        Loop Until Left$(fsName, 3) <> parentFolder
-    End If
+Public Function BuildPath(ByRef folderPath As String _
+                        , ByRef fsName As String) As String
     BuildPath = FixPathSeparators(folderPath & PATH_SEPARATOR & fsName)
 End Function
 
@@ -923,10 +908,12 @@ End Function
 'Note that on a Mac, the network paths (smb:// or afp://) need to be mounted and
 '   are only valid via the mounted volumes: /volumes/VolumeName/... unlike on a
 '   PC where \\share\data\... is a valid file/folder path (UNC)
+'Trims any current paths \. as well as any parent folder pairs \{parentName}\..
 '*******************************************************************************
 Public Function FixPathSeparators(ByRef pathToFix As String) As String
     Const ps As String = PATH_SEPARATOR
     Dim resultPath As String
+    Dim isUNC As Boolean
     '
     If LenB(pathToFix) = 0 Then Exit Function
     #If Mac Then
@@ -941,36 +928,70 @@ Public Function FixPathSeparators(ByRef pathToFix As String) As String
                 resultPath = Mid$(resultPath, 5)
             End If
         End If
-        Dim isUNC As Boolean: isUNC = (Left$(resultPath, 2) = "\\")
+        isUNC = (Left$(resultPath, 2) = "\\")
     #End If
     '
-    'Replace repeated separators e.g. replace \\\\\ with \
+    Const fCurrent As String = ps & "." & ps
+    Const fParent As String = ps & ".." & ps
+    Dim sepIndex As Long
+    Dim i As Long: i = 0
+    '
+    'Remove any current folder references
+    Do
+        i = InStr(i + 1, resultPath, fCurrent)
+        If i = 0 Then i = InStr(Len(resultPath) - 1, resultPath, ps & ".")
+        If i > 0 Then Mid$(resultPath, i + 1, 1) = ps
+    Loop Until i = 0
+    '
+    FixPathSeparators = RemoveDuplicatePS(resultPath, isUNC)
+    '
+    'Remove any parent folder references
+    i = 1
+    Do
+        i = InStr(i, FixPathSeparators, fParent)
+        If i = 0 Then
+            i = InStr(Len(FixPathSeparators) - 2, FixPathSeparators, ps & "..")
+        End If
+        If i > 1 Then
+            sepIndex = InStrRev(FixPathSeparators, ps, i - 1)
+            If sepIndex < 3 Then sepIndex = i
+            FixPathSeparators = Left$(FixPathSeparators, sepIndex) _
+                              & Mid$(FixPathSeparators, i + 4)
+            If sepIndex < i Then i = i - sepIndex
+        End If
+    Loop Until i = 0
+End Function
+
+'*******************************************************************************
+'Utility for 'FixPathSeparators'. Removes any duplicate path separators
+'*******************************************************************************
+Private Function RemoveDuplicatePS(ByRef pathToFix As String _
+                                 , ByVal isUNC As Boolean) As String
+    Const ps As String = PATH_SEPARATOR
     Dim startPos As Long
     Dim currPos As Long
     Dim prevPos As Long
     Dim diff As Long
     Dim i As Long
     '
-    #If Windows Then
-        If isUNC Then currPos = 2 'Skip the leading UNC prefix: \\
-    #End If
-    FixPathSeparators = resultPath
+    If isUNC Then currPos = 2 'Skip the leading UNC prefix: \\
+    RemoveDuplicatePS = pathToFix
     Do
         prevPos = currPos
-        currPos = InStr(currPos + 1, resultPath, ps)
+        currPos = InStr(currPos + 1, pathToFix, ps)
         If startPos = 0 Then startPos = prevPos + 1
         If currPos - prevPos <= 1 Then
             diff = currPos - startPos
-            If currPos = 0 Then diff = diff + Len(resultPath) + 1
+            If currPos = 0 Then diff = diff + Len(pathToFix) + 1
             If startPos * Sgn(i * diff) > 1 Then
-                Mid$(FixPathSeparators, i) = Mid$(resultPath, startPos, diff)
+                Mid$(RemoveDuplicatePS, i) = Mid$(pathToFix, startPos, diff)
                 i = i + diff
             End If
             If i = 0 Then i = (startPos + diff) * Sgn(prevPos)
             startPos = 0
         End If
     Loop Until currPos = 0
-    If i > 1 Then FixPathSeparators = Left$(FixPathSeparators, i - 1)
+    If i > 1 Then RemoveDuplicatePS = Left$(RemoveDuplicatePS, i - 1)
 End Function
 
 '*******************************************************************************
@@ -1367,7 +1388,7 @@ End Function
 'Note that the input path does not need to be an existing file/folder
 '*******************************************************************************
 #If Windows Then
-Private Function GetUNCPath(ByVal fullPath As String) As String
+Private Function GetUNCPath(ByRef fullPath As String) As String
     With GetDriveInfo(fullPath)
         If LenB(.shareName) = 0 Then Exit Function  'Not UNC
         GetUNCPath = FixPathSeparators(Replace(fullPath, .driveName, .shareName _
@@ -1380,13 +1401,14 @@ End Function
 'Returns the web path for a OneDrive local path or null string if not OneDrive
 'Note that the input path does not need to be an existing file/folder
 '*******************************************************************************
-Public Function GetRemotePath(ByVal fullPath As String _
-                           , Optional ByVal rebuildCache As Boolean = False) As String
+Public Function GetRemotePath(ByRef fullPath As String _
+                            , Optional ByVal rebuildCache As Boolean = False) As String
+    Dim tempPath As String: tempPath = FixPathSeparators(fullPath)
     #If Windows Then
-        GetRemotePath = GetUNCPath(fullPath)
+        GetRemotePath = GetUNCPath(tempPath)
         If LenB(GetRemotePath) > 0 Then Exit Function
     #End If
-    GetRemotePath = GetOneDriveWebPath(fullPath, rebuildCache)
+    GetRemotePath = GetOneDriveWebPath(tempPath, rebuildCache)
 End Function
 
 #If Mac Then
@@ -1543,8 +1565,8 @@ End Function
 'With the help of: @guwidoe (https://github.com/guwidoe)
 'See: https://github.com/cristianbuse/VBA-FileTools/issues/1
 '*******************************************************************************
-Public Function GetOneDriveLocalPath(ByVal odWebPath As String _
-                                   , ByVal rebuildCache As Boolean) As String
+Private Function GetOneDriveLocalPath(ByVal odWebPath As String _
+                                    , ByVal rebuildCache As Boolean) As String
     If InStr(1, odWebPath, "https://", vbTextCompare) <> 1 Then Exit Function
     '
     Dim collMatches As New Collection
