@@ -500,6 +500,106 @@ Public Function BuildPath(ByVal folderPath As String _
 End Function
 
 '*******************************************************************************
+'Converts a text between 2 page codes
+'*******************************************************************************
+#If Mac Then
+Public Function ConvertText(ByRef textToConvert As String _
+                          , ByVal toCode As PageCode _
+                          , ByVal fromCode As PageCode _
+                          , Optional ByVal persistDescriptor As Boolean = False) As String
+#Else
+Public Function ConvertText(ByRef textToConvert As String _
+                          , ByVal toCode As PageCode _
+                          , ByVal fromCode As PageCode) As String
+#End If
+    If toCode = fromCode Then
+        ConvertText = textToConvert
+        Exit Function
+    End If
+    #If Mac Then
+        Dim inBytesLeft As LongPtr:  inBytesLeft = LenB(textToConvert)
+        Dim outBytesLeft As LongPtr: outBytesLeft = inBytesLeft * 4
+        Dim buffer As String:        buffer = Space$(CLng(inBytesLeft) * 2)
+        Dim inBuf As LongPtr:        inBuf = StrPtr(textToConvert)
+        Dim outBuf As LongPtr:       outBuf = StrPtr(buffer)
+        Dim cd As LongPtr
+        Dim cdKey As String:         cdKey = fromCode & "_" & toCode
+        Dim cdFound As Boolean
+        '
+        On Error Resume Next
+        cd = m_conversionDescriptors(cdKey)
+        cdFound = (cd <> 0)
+        On Error GoTo 0
+        If Not cdFound Then
+            cd = iconv_open(StrPtr(PageCodeToText(toCode)) _
+                          , StrPtr(PageCodeToText(fromCode)))
+            If persistDescriptor Then m_conversionDescriptors.Add cd, cdKey
+        End If
+        If iconv(cd, inBuf, inBytesLeft, outBuf, outBytesLeft) <> -1 Then
+            ConvertText = LeftB$(buffer, LenB(buffer) - CLng(outBytesLeft))
+        End If
+        If Not (cdFound Or persistDescriptor) Then iconv_close cd
+    #Else
+        If toCode = codeUTF16LE Then
+            ConvertText = EncodeToUTF16LE(textToConvert, fromCode)
+        ElseIf fromCode = codeUTF16LE Then
+            ConvertText = EncodeFromUTF16LE(textToConvert, toCode)
+        Else
+            ConvertText = EncodeFromUTF16LE( _
+                          EncodeToUTF16LE(textToConvert, fromCode), toCode)
+        End If
+    #End If
+End Function
+#If Mac Then
+Public Sub ClearConversionDescriptors()
+    If m_conversionDescriptors.Count = 0 Then Exit Sub
+    Dim v As Variant
+    '
+    For Each v In m_conversionDescriptors
+        iconv_close v
+    Next v
+    Set m_conversionDescriptors = Nothing
+End Sub
+Private Function PageCodeToText(ByVal pc As PageCode) As String
+    Dim result As String
+    Select Case pc
+        Case codeUTF8:    result = "UTF-8"
+        Case codeUTF16LE: result = "UTF-16LE"
+        Case codeUTF16BE: result = "UTF-16BE"
+        Case codeUTF32LE: result = "UTF-32LE"
+        Case codeUTF32BE: result = "UTF-32BE"
+    End Select
+    PageCodeToText = StrConv(result, vbFromUnicode)
+End Function
+#Else
+Private Function EncodeToUTF16LE(ByRef textToConvert As String _
+                               , ByVal fromCode As PageCode) As String
+    Dim charCount As Long
+    charCount = MultiByteToWideChar(fromCode, 0, StrPtr(textToConvert) _
+                                  , LenB(textToConvert), 0, 0)
+    If charCount = 0 Then Exit Function
+
+    EncodeToUTF16LE = Space$(charCount)
+    MultiByteToWideChar fromCode, 0, StrPtr(textToConvert) _
+                      , LenB(textToConvert), StrPtr(EncodeToUTF16LE), charCount
+End Function
+Private Function EncodeFromUTF16LE(ByRef textToConvert As String _
+                                 , ByVal toCode As PageCode) As String
+    Dim byteCount As Long
+    byteCount = WideCharToMultiByte(toCode, 0, StrPtr(textToConvert) _
+                                  , Len(textToConvert), 0, 0, 0, 0)
+    If byteCount = 0 Then Exit Function
+    '
+    EncodeFromUTF16LE = Space$((byteCount + 1) \ 2)
+    If byteCount Mod 2 = 1 Then
+        EncodeFromUTF16LE = LeftB$(EncodeFromUTF16LE, byteCount)
+    End If
+    WideCharToMultiByte toCode, 0, StrPtr(textToConvert), Len(textToConvert) _
+                      , StrPtr(EncodeFromUTF16LE), byteCount, 0, 0
+End Function
+#End If
+
+'*******************************************************************************
 'Copies a file. Overwrites existing files unless 'failIfExists' is set to True
 'Note that VBA.FileCopy does not copy opened files on Windows but it does on Mac
 'If the destination file already exists and 'failIfExists' is set to False
@@ -2335,102 +2435,3 @@ Public Sub ReadBytes(ByVal filePath As String, ByRef result() As Byte)
     End If
     Close #fileNumber
 End Sub
-
-'*******************************************************************************
-'Converts a text between 2 page codes
-'*******************************************************************************
-#If Mac Then
-Public Function ConvertText(ByRef textToConvert As String _
-                          , ByVal toCode As PageCode _
-                          , ByVal fromCode As PageCode _
-                          , Optional ByVal persistDescriptor As Boolean = False) As String
-#Else
-Public Function ConvertText(ByRef textToConvert As String _
-                          , ByVal toCode As PageCode _
-                          , ByVal fromCode As PageCode) As String
-#End If
-    If toCode = fromCode Then
-        ConvertText = textToConvert
-        Exit Function
-    End If
-    #If Mac Then
-        Dim inBytesLeft As LongPtr:  inBytesLeft = LenB(textToConvert)
-        Dim outBytesLeft As LongPtr: outBytesLeft = inBytesLeft * 4
-        Dim buffer As String:        buffer = Space$(CLng(inBytesLeft) * 2)
-        Dim inBuf As LongPtr:        inBuf = StrPtr(textToConvert)
-        Dim outBuf As LongPtr:       outBuf = StrPtr(buffer)
-        Dim cd As LongPtr
-        Dim cdKey As String:         cdKey = fromCode & "_" & toCode
-        Dim cdFound As Boolean
-        '
-        On Error Resume Next
-        cd = m_conversionDescriptors(cdKey)
-        cdFound = (cd <> 0)
-        On Error GoTo 0
-        If Not cdFound Then
-            cd = iconv_open(StrPtr(PageCodeToText(toCode)) _
-                          , StrPtr(PageCodeToText(fromCode)))
-            If persistDescriptor Then m_conversionDescriptors.Add cd, cdKey
-        End If
-        If iconv(cd, inBuf, inBytesLeft, outBuf, outBytesLeft) <> -1 Then
-            ConvertText = LeftB$(buffer, LenB(buffer) - CLng(outBytesLeft))
-        End If
-        If Not (cdFound Or persistDescriptor) Then iconv_close cd
-    #Else
-        If toCode = codeUTF16LE Then
-            ConvertText = EncodeToUTF16LE(textToConvert, fromCode)
-        ElseIf fromCode = codeUTF16LE Then
-            ConvertText = EncodeFromUTF16LE(textToConvert, toCode)
-        Else
-            ConvertText = EncodeFromUTF16LE(EncodeToUTF16LE(textToConvert, fromCode), toCode)
-        End If
-    #End If
-End Function
-#If Mac Then
-Public Sub ClearConversionDescriptors()
-    If m_conversionDescriptors.Count = 0 Then Exit Sub
-    Dim v As Variant
-    '
-    For Each v In m_conversionDescriptors
-        iconv_close v
-    Next v
-    Set m_conversionDescriptors = Nothing
-End Sub
-Private Function PageCodeToText(ByVal pc As PageCode) As String
-    Dim result As String
-    Select Case pc
-        Case codeUTF8:    result = "UTF-8"
-        Case codeUTF16LE: result = "UTF-16LE"
-        Case codeUTF16BE: result = "UTF-16BE"
-        Case codeUTF32LE: result = "UTF-32LE"
-        Case codeUTF32BE: result = "UTF-32BE"
-    End Select
-    PageCodeToText = StrConv(result, vbFromUnicode)
-End Function
-#Else
-Private Function EncodeToUTF16LE(ByRef textToConvert As String _
-                               , ByVal fromCode As PageCode) As String
-    Dim charCount As Long
-    charCount = MultiByteToWideChar(fromCode, 0, StrPtr(textToConvert) _
-                                  , LenB(textToConvert), 0, 0)
-    If charCount = 0 Then Exit Function
-
-    EncodeToUTF16LE = Space$(charCount)
-    MultiByteToWideChar fromCode, 0, StrPtr(textToConvert) _
-                      , LenB(textToConvert), StrPtr(EncodeToUTF16LE), charCount
-End Function
-Private Function EncodeFromUTF16LE(ByRef textToConvert As String _
-                                 , ByVal toCode As PageCode) As String
-    Dim byteCount As Long
-    byteCount = WideCharToMultiByte(toCode, 0, StrPtr(textToConvert) _
-                                  , Len(textToConvert), 0, 0, 0, 0)
-    If byteCount = 0 Then Exit Function
-    '
-    EncodeFromUTF16LE = Space$((byteCount + 1) \ 2)
-    If byteCount Mod 2 = 1 Then
-        EncodeFromUTF16LE = LeftB$(EncodeFromUTF16LE, byteCount)
-    End If
-    WideCharToMultiByte toCode, 0, StrPtr(textToConvert), Len(textToConvert) _
-                      , StrPtr(EncodeFromUTF16LE), byteCount, 0, 0
-End Function
-#End If
