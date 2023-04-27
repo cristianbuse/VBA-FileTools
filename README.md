@@ -16,9 +16,10 @@ Just import the following code module in your VBA Project:
 A couple of demoes saved in the [Demo](src/Demo/DemoLibFileTools.bas) module.
 
 Public/Exposed methods:
- - BrowseForFiles    (Windows only)
- - BrowseForFolder   (Windows only)
+ - BrowseForFiles      (Windows only)
+ - BrowseForFolder     (Windows only)
  - BuildPath
+ - ConvertText
  - CopyFile
  - CopyFolder
  - CreateFolder
@@ -26,19 +27,19 @@ Public/Exposed methods:
  - DeleteFolder
  - FixFileName
  - FixPathSeparators
- - GetFileOwner      (Windows only)
+ - GetFileOwner        (Windows only)
  - GetFiles
  - GetFolders
- - GetKnownFolderWin (Windows only)
- - GetLocalPath      (covers UNC/OneDrive/SharePoint paths)
- - GetRemotePath     (covers UNC/OneDrive/SharePoint paths)
+ - GetKnownFolderWin   (Windows only)
+ - GetLocalPath        (covers UNC/OneDrive/SharePoint paths)
+ - GetRelativePath
+ - GetRemotePath       (covers UNC/OneDrive/SharePoint paths)
  - GetSpecialFolderMac (Mac only)
  - IsFile
  - IsFolder
  - IsFolderEditable
  - MoveFile
  - MoveFolder
- - PathSeparator
  - ReadBytes
 
 ## Notes

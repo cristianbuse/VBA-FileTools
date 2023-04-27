@@ -52,6 +52,7 @@ Attribute VB_Name = "LibFileTools"
 ''    - GetFolders
 ''    - GetKnownFolderWin   (Windows only)
 ''    - GetLocalPath
+''    - GetRelativePath
 ''    - GetRemotePath
 ''    - GetSpecialFolderMac (Mac only)
 ''    - IsFile
@@ -1400,6 +1401,58 @@ Private Function GetUNCPath(ByRef fullPath As String) As String
     End With
 End Function
 #End If
+
+'*******************************************************************************
+'Returns the relative path for a given 'fullPath' based on another full path
+'   or a Null String if the two paths do not have a common root
+'*******************************************************************************
+Public Function GetRelativePath(ByRef fullPath As String _
+                              , ByRef relativeToFullPath As String) As String
+    Dim fPath As String
+    Dim rPath As String
+    '
+    fPath = GetLocalPath(fullPath, , True)
+    rPath = GetLocalPath(relativeToFullPath, , True)
+    '
+    Const ps As String = PATH_SEPARATOR
+    Dim fParent As String
+    Dim rParent As String
+    Dim prevPos As Long
+    Dim currPos As Long
+    Dim diff As Long
+    Dim isRFile As Boolean
+    '
+    Do
+        prevPos = currPos
+        currPos = InStr(currPos + 1, fPath, ps)
+        diff = currPos - prevPos - 1
+        If diff > 0 Then
+            fParent = Mid$(fPath, prevPos + 1, diff)
+            rParent = Mid$(rPath, prevPos + 1, diff)
+            If StrComp(fParent, rParent, vbTextCompare) <> 0 Then Exit Do
+        End If
+    Loop Until currPos = 0
+    If prevPos = 0 Then Exit Function
+    '
+    fPath = Mid$(fPath, prevPos + 1)
+    isRFile = IsFile(rPath)
+    rPath = Mid$(rPath, prevPos + 1)
+    '
+    If LenB(rPath) > 0 Then
+        Dim psCount As Long
+        currPos = 0
+        Do
+            currPos = InStr(currPos + 1, rPath, ps)
+            psCount = psCount + 1
+        Loop Until currPos = 0
+        If Right$(rPath, 1) = ps Or isRFile Then psCount = psCount - 1
+    End If
+    If psCount > 0 Then
+        GetRelativePath = Replace(Space$(psCount), " ", ".." & ps) & fPath
+    Else
+        GetRelativePath = "." & ps & fPath
+    End If
+End Function
 
 '*******************************************************************************
 'Returns the web path for a OneDrive local path or null string if not OneDrive
