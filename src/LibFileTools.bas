@@ -521,7 +521,7 @@ Public Function CopyFile(ByVal sourcePath As String _
         On Error Resume Next
         SetAttr destinationPath, vbNormal 'Too costly to do after Copy fails
         Err.Clear 'Ignore any errors raised by 'SetAttr'
-        VBA.FileCopy sourcePath, destinationPath 'Copies opened files as well
+        FileCopy sourcePath, destinationPath 'Copies opened files as well
         CopyFile = (Err.Number = 0)
         On Error GoTo 0
     #Else
@@ -714,17 +714,17 @@ Private Function DeleteBottomMostFolder(ByVal folderPath As String) As Boolean
 End Function
 
 '*******************************************************************************
-'Fixes a file or folder name
+'Fixes a file or folder name, NOT a path
 'Before creating a file/folder it's useful to fix the name so that the creation
 '   does not fail because of forbidden characters, reserved names or other rules
 '*******************************************************************************
 #If Mac Then
-Public Function FixFileName(ByVal nameToFix As String) As String
+Public Function FixFileName(ByRef nameToFix As String) As String
     FixFileName = Replace(nameToFix, ":", vbNullString)
     FixFileName = Replace(FixFileName, "/", vbNullString)
 End Function
 #Else
-Public Function FixFileName(ByVal nameToFix As String _
+Public Function FixFileName(ByRef nameToFix As String _
                           , Optional ByVal isFATFileSystem As Boolean = False) As String
     Dim resultName As String: resultName = nameToFix
     Dim v As Variant
@@ -746,7 +746,6 @@ Public Function FixFileName(ByVal nameToFix As String _
         Loop
     End If
     If currIndex < nameLen Then resultName = Left$(resultName, currIndex)
-    '
     If IsReservedName(resultName) Then resultName = vbNullString
     '
     FixFileName = resultName
@@ -771,13 +770,13 @@ Private Function ForbiddenNameChars(ByVal addCaret As Boolean) As Collection
             collForbiddenChars.Add v
         Next v
         For i = 0 To 31 'ASCII control characters and the null character
-            collForbiddenChars.Add VBA.Chr$(i)
+            collForbiddenChars.Add Chr$(i)
         Next i
     End If
     If hasCaret And Not addCaret Then
-        collForbiddenChars.Remove collForbiddenChars.Count
+        collForbiddenChars.Remove 1
     ElseIf Not hasCaret And addCaret Then
-        collForbiddenChars.Add "^"
+        collForbiddenChars.Add Item:="^", Before:=1
     End If
     hasCaret = addCaret
     '
@@ -791,14 +790,14 @@ End Function
 #If Windows Then
 Private Function IsReservedName(ByVal nameToCheck As String) As Boolean
     Static collReservedNames As Collection
+    Dim v As Variant
     '
     If collReservedNames Is Nothing Then
-        Dim v As Variant
-        '
         Set collReservedNames = New Collection
         For Each v In Split("com1,com2,com3,com4,com5,com6,com7,com8,com9," _
-        & "lpt1,lpt2,lpt3,lpt4,lpt5,lpt6,lpt7,lpt8,lpt9,con,nul,prn,aux", ",")
-            collReservedNames.Add v, v
+                          & "lpt1,lpt2,lpt3,lpt4,lpt5,lpt6,lpt7,lpt8,lpt9," _
+                          & "con,nul,prn,aux", ",")
+            collReservedNames.Add Empty, v
         Next v
     End If
     On Error Resume Next
@@ -832,7 +831,7 @@ Public Function FixPathSeparators(ByRef pathToFix As String) As String
                 resultPath = Mid$(resultPath, 5)
             End If
         End If
-        Dim isUNC As Boolean: isUNC = Left$(resultPath, 2) = "\\"
+        Dim isUNC As Boolean: isUNC = (Left$(resultPath, 2) = "\\")
     #End If
     '
     'Replace repeated separators e.g. replace \\\\\ with \
@@ -899,8 +898,8 @@ Public Function GetFileOwner(ByVal filePath As String) As String
     If nameLen = 0 Then Exit Function
     '
     'Get name and domain
-    Dim owName As String: owName = VBA.Space$(nameLen - 1) '-1 less Null Char
-    Dim owDomain As String: owDomain = VBA.Space$(domainLen - 1)
+    Dim owName As String: owName = Space$(nameLen - 1) '-1 less Null Char
+    Dim owDomain As String: owDomain = Space$(domainLen - 1)
     If LookupAccountSid(vbNullString, pOwner, owName _
                       , nameLen, owDomain, domainLen, 0&) = 0 Then Exit Function
     '
@@ -1413,10 +1412,10 @@ Private Function AlignDriveNameIfNeeded(ByVal driveName As String _
                                       , ByVal shareName As String) As String
     Dim sepIndex As Long
     '
-    sepIndex = VBA.InStr(3, driveName, PATH_SEPARATOR)
+    sepIndex = InStr(3, driveName, PATH_SEPARATOR)
     If sepIndex > 0 Then
-        Dim newName As String: newName = VBA.Left$(driveName, sepIndex - 1)
-        sepIndex = VBA.InStr(3, shareName, PATH_SEPARATOR)
+        Dim newName As String: newName = Left$(driveName, sepIndex - 1)
+        sepIndex = InStr(3, shareName, PATH_SEPARATOR)
         newName = newName & Right$(shareName, Len(shareName) - sepIndex + 1)
         AlignDriveNameIfNeeded = newName
     Else
