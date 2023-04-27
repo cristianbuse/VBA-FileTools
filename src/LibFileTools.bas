@@ -85,11 +85,11 @@ Option Private Module
         Private Declare PtrSafe Function LookupAccountSid Lib "advapi32.dll" Alias "LookupAccountSidA" (ByVal lpSystemName As String, ByVal Sid As LongPtr, ByVal Name As String, cbName As Long, ByVal ReferencedDomainName As String, cbReferencedDomainName As Long, peUse As LongPtr) As Long
         Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
         Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpDefaultChar As LongPtr, ByVal lpUsedDefaultChar As LongPtr) As Long
-        Private Declare PtrSafe Function SHGetKnownFolderPath Lib "Shell32" (ByRef rfid As GUID, ByVal dwFlags As Long, ByVal hToken As Long, ByRef pszPath As LongPtr) As Long
+        Private Declare PtrSafe Function SHGetKnownFolderPath Lib "Shell32" (ByRef rfID As GUID, ByVal dwFlags As Long, ByVal hToken As Long, ByRef pszPath As LongPtr) As Long
         Private Declare PtrSafe Function CLSIDFromString Lib "ole32" (ByVal lpszGuid As LongPtr, ByRef pGuid As GUID) As Long
         Private Declare PtrSafe Function lstrlenW Lib "kernel32" (ByVal lpString As LongPtr) As Long
         Private Declare PtrSafe Sub CoTaskMemFree Lib "ole32" (ByVal hMem As LongPtr)
-        Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByVal Destination As LongPtr, ByVal source As LongPtr, ByVal length As Long)
+        Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByVal Destination As LongPtr, ByVal Source As LongPtr, ByVal Length As LongPtr)
     #Else
         Private Declare Function CopyFileA Lib "kernel32" (ByVal lpExistingFileName As String, ByVal lpNewFileName As String, ByVal bFailIfExists As Long) As Long
         Private Declare Function DeleteFileA Lib "kernel32" (ByVal lpFileName As String) As Long
@@ -102,7 +102,7 @@ Option Private Module
         Private Declare Function CLSIDFromString Lib "ole32" (ByVal lpszGuid As Long, pGuid As Any) As Long
         Private Declare Function lstrlenW Lib "kernel32" (ByVal lpString As Long) As Long
         Private Declare Sub CoTaskMemFree Lib "ole32" (ByVal pv As Long)
-        Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (Destination As Any, Source As Any, ByVal length As Long)
+        Private Declare Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByVal Destination As Long, ByVal Source As Long, ByVal Length As Long)
     #End If
 #End If
 
@@ -123,8 +123,7 @@ Public Enum PageCode
 #End If
 End Enum
 
-#If Mac Then
-    'Special folder constants for Mac
+#If Mac Then 'Special folder constants for Mac
     'Source: https://developer.apple.com/library/archive/documentation/AppleScript/Conceptual/AppleScriptLangGuide/reference/ASLR_cmds.html
     Public Const SFC_ApplicationSupport    As String = "application support"
     Public Const SFC_ApplicationsFolder    As String = "applications folder"
@@ -162,7 +161,7 @@ End Enum
     Public Const SFC_UsersFolder           As String = "users folder"
     Public Const SFC_UtilitiesFolder       As String = "utilities folder"
     Public Const SFC_WorkflowsFolder       As String = "workflows folder"
-                                                   
+                                      
     'Classic domain only
     Public Const SFC_AppleMenu             As String = "apple menu"
     Public Const SFC_ControlPanels         As String = "control panels"
@@ -175,7 +174,7 @@ End Enum
     Public Const SFC_SpeakableItems        As String = "speakable items"
     Public Const SFC_Stationery            As String = "stationery"
     Public Const SFC_Voices                As String = "voices"
-    
+
     'The following domain names are valid:
     Public Const DOMAIN_System  As String = "system"
     Public Const DOMAIN_Local   As String = "local"
@@ -188,7 +187,7 @@ End Enum
     'Note: Most of the FOLDERIDs that are available on a specific device seem to
     '      be registered in the windows registry under
     '      HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions
-    '      However it seems that sometimes the SHGetKnownFolderPath function can
+    '      However, it seems that sometimes the SHGetKnownFolderPath function can
     '      process a FOLDERID even if not present in said registry location.
     Public Const FOLDERID_AccountPictures        As String = "{008ca0b1-55b4-4c56-b8a8-4de4b299d3be}"
     Public Const FOLDERID_AddNewPrograms         As String = "{de61d971-5ebc-4f02-a3a9-6c82895e5c04}"
@@ -343,10 +342,10 @@ End Type
 
 #If Windows Then
     Private Type GUID
-        Data1 As Long
-        Data2 As Integer
-        Data3 As Integer
-        Data4(7) As Byte
+        data1 As Long
+        data2 As Integer
+        data3 As Integer
+        data4(0 To 7) As Byte
     End Type
 #End If
 
@@ -390,19 +389,11 @@ End Type
     Public Const PATH_SEPARATOR = "\"
 #End If
 
-#If Windows Then
-    Private Const E_FAIL                        As Long = &H80004005
-    Private Const E_INVALIDARG                  As Long = &H80070057
-    Private Const HRESULT_ERROR_FILE_NOT_FOUND  As Long = &H80070002
-    Private Const HRESULT_ERROR_PATH_NOT_FOUND  As Long = &H80070003
-    Private Const HRESULT_ERROR_ACCESS_DENIED   As Long = &H80070005
-    Private Const HRESULT_ERROR_NOT_FOUND       As Long = &H80070490
-#End If
-
-Private Const vbErrInternalError            As Long = 51
-Private Const vbErrPathFileAccessError      As Long = 75
-Private Const vbErrPathNotFound             As Long = 76
-Private Const vbErrComponentNotRegistered   As Long = 336
+Private Const vbErrInvalidProcedureCall   As Long = 5
+Private Const vbErrInternalError          As Long = 51
+Private Const vbErrPathFileAccessError    As Long = 75
+Private Const vbErrPathNotFound           As Long = 76
+Private Const vbErrComponentNotRegistered As Long = 336
 
 Private m_providers As ONEDRIVE_PROVIDERS
 #If Mac Then
@@ -1061,89 +1052,70 @@ End Function
 
 #If Windows Then
 '*******************************************************************************
-'Gets path of a 'known folder' using the respective 'FOLDERID' on Windows
-'If 'createIfNotExists' is set to true, the windows API function will be called
+'Returns path of a 'known folder' using the respective 'FOLDERID' on Windows
+'If 'createIfMissing' is set to True, the windows API function will be called
 '   with flags 'KF_FLAG_CREATE' and 'KF_FLAG_INIT' and will create the folder
 '   if it does not currently exist on the system.
 'The function can raise the following errors:
-'   - 5:   (Invalid procedure call) If the passed 'knownFolderID' is not a valid
-'          CLSID.
-'   - 76:  (Path not found) Will only be raised if 'createIfNotExists' = False
-'          and the function fails to find the path.
-'   - 75:  (Path/File access error) Raised if function failed to find a path,
-'          either because the specified FOLDERID is for a virtual known folder,
-'          or because there are insufficient permissions to create the folder
-'   - 336: (Component not correctly registered) Raised if the path, or the known
-'          folder id itself are not registered in the windows registry.
-'   - 51:  (Internal error) If an unexpected error occurs which is likely a
-'          result of an invalid implementation in this function.
+'   -   5: (Invalid procedure call) if 'knownFolderID' is not a valid CLSID
+'   -  76: (Path not found) if 'createIfMissing' = False AND path not found
+'   -  75: (Path/File access error) if path not found because either:
+'          * the specified FOLDERID is for a known virtual folder
+'          * there are insufficient permissions to create the folder
+'   - 336: (Component not correctly registered) if the path, or the known
+'          FOLDERID itself are not registered in the windows registry
+'   -  51: (Internal error) if an unexpected error occurs
 '*******************************************************************************
-Public Function GetKnownFolderWin(ByVal knownFolderID As String, _
-                         Optional ByVal createIfNotExists As Boolean = False) As String
+Public Function GetKnownFolderWin(ByRef knownFolderID As String, _
+                         Optional ByVal createIfMissing As Boolean = False) As String
     Const methodName As String = "GetKnownFolderWin"
-    Dim id As GUID
+    Const NOERROR As Long = 0
+    Dim rfID As GUID
     '
-    If CLSIDFromString(StrPtr(knownFolderID), id) <> 0 Then _
-        Err.Raise 5, methodName, "'" & knownFolderID & "' is not a valid CLSID."
+    If CLSIDFromString(StrPtr(knownFolderID), rfID) <> NOERROR Then
+        Err.Raise vbErrInvalidProcedureCall, methodName, "Invalid CLSID"
+    End If
     '
-    Const KF_FLAG_CREATE As Long = &H8000&  'Other possible flags are not really
-    Const KF_FLAG_INIT   As Long = &H800&   '  relevant for LibFileTools
-    Dim dwFlags As Long
-    If createIfNotExists Then dwFlags = dwFlags Or KF_FLAG_CREATE Or KF_FLAG_INIT
-     '
-    Dim pszPath As LongPtr
-    Dim retCode As Long: retCode = SHGetKnownFolderPath(id, dwFlags, 0, pszPath)
+    Const KF_FLAG_CREATE As Long = &H8000&  'Other flags not relevant
+    Const KF_FLAG_INIT   As Long = &H800&
+    Const flagCreateInit As Long = KF_FLAG_CREATE Or KF_FLAG_INIT
+    Dim dwFlags As Long: If createIfMissing Then dwFlags = flagCreateInit
     '
-    If retCode = 0 Then GetKnownFolderWin = GetBstrFromWideStringPtr(pszPath)
-    CoTaskMemFree pszPath 'Memory must be freed by calling process, even on fail
+    Const S_OK As Long = 0
+    Dim ppszPath As LongPtr
+    Dim hRes As Long: hRes = SHGetKnownFolderPath(rfID, dwFlags, 0, ppszPath)
     '
-    'The remaining part is only concerned with error handling.
-    Const genericMsg As String = "Known folder path not found on this device."
-    Const callAgainPrompt As String = " You can try calling '" & methodName _
-                                      & "' again with 'createIfNotExists:=True'."
-    Select Case retCode
-        Case E_FAIL
-            Err.Raise vbErrPathFileAccessError, methodName, "Error getting " & _
-                "known folder path. Known folder might be of category '" & _
-                "KF_CATEGORY_VIRTUAL' which means it can not have a path."
-        Case E_INVALIDARG
-            Err.Raise vbErrInternalError, methodName, "API call invalid. " & _
-                                          "Library implementation erroneous"
-        Case HRESULT_ERROR_FILE_NOT_FOUND
-            If createIfNotExists Then
-                Err.Raise vbErrInternalError, methodName, genericMsg & _
-                    " The specified KnownFolderID might not exist."
-            Else
-                Err.Raise vbErrPathNotFound, methodName, genericMsg & _
-                                                         callAgainPrompt
-            End If
-        Case HRESULT_ERROR_PATH_NOT_FOUND, HRESULT_ERROR_NOT_FOUND
-            Err.Raise vbErrComponentNotRegistered, methodName, genericMsg & _
-                "The KnownFolderID might be registered, but no path " & _
-                "seems to be registered for it."
-        Case HRESULT_ERROR_ACCESS_DENIED
-            Err.Raise vbErrPathFileAccessError, methodName, "Error getting " & _
-                "known folder path. Access denied."
-        Case Is <> 0 'Else
-            Err.Raise vbErrInternalError, methodName, "Unknown error code."
+    If hRes = S_OK Then
+        GetKnownFolderWin = Space$(lstrlenW(ppszPath))
+        CopyMemory StrPtr(GetKnownFolderWin), ppszPath, LenB(GetKnownFolderWin)
+    End If
+    CoTaskMemFree ppszPath 'Memory must be freed, even on fail
+    If hRes = S_OK Then Exit Function
+    '
+    Const E_FAIL                        As Long = &H80004005
+    Const E_INVALIDARG                  As Long = &H80070057
+    Const HRESULT_ERROR_FILE_NOT_FOUND  As Long = &H80070002
+    Const HRESULT_ERROR_PATH_NOT_FOUND  As Long = &H80070003
+    Const HRESULT_ERROR_ACCESS_DENIED   As Long = &H80070005
+    Const HRESULT_ERROR_NOT_FOUND       As Long = &H80070490
+    '
+    Select Case hRes
+    Case E_FAIL
+        Err.Raise vbErrPathFileAccessError, methodName, "Known folder might " _
+                & "be marked 'KF_CATEGORY_VIRTUAL' which does not have a path"
+    Case E_INVALIDARG
+        Err.Raise vbErrInvalidProcedureCall, methodName _
+                , "Known folder not present on system"
+    Case HRESULT_ERROR_FILE_NOT_FOUND
+        Err.Raise vbErrPathNotFound, methodName, "KnownFolderID might not exist"
+    Case HRESULT_ERROR_PATH_NOT_FOUND, HRESULT_ERROR_NOT_FOUND
+        Err.Raise vbErrComponentNotRegistered, methodName, "KnownFolderID " _
+                & "might be registered, but no path registered for it"
+    Case HRESULT_ERROR_ACCESS_DENIED
+        Err.Raise vbErrPathFileAccessError, methodName, "Access denied"
+    Case Else
+        Err.Raise vbErrInternalError, methodName, "Unexpected error code"
     End Select
-    '
-    If GetKnownFolderWin = vbNullString Then
-        If createIfNotExists Then
-            Err.Raise vbErrComponentNotRegistered, methodName, genericMsg & _
-                "The KnownFolderID might not be registered."
-        Else
-            Err.Raise vbErrPathNotFound, methodName, genericMsg & callAgainPrompt
-        End If
-    End If
-End Function
-Private Function GetBstrFromWideStringPtr(ByVal lpwString As LongPtr) As String
-    Dim length As Long
-    If lpwString <> 0 Then length = lstrlenW(lpwString)
-    If length <> 0 Then
-        GetBstrFromWideStringPtr = Space$(length)
-        CopyMemory StrPtr(GetBstrFromWideStringPtr), lpwString, length * 2
-    End If
 End Function
 #End If
 
@@ -1267,10 +1239,11 @@ Public Function GetLocalPath(ByRef fullPath As String _
                            , Optional ByVal rebuildCache As Boolean = False) As String
     #If Windows Then
         If InStr(1, fullPath, "https://", vbTextCompare) <> 1 Then
-            With GetDriveInfo(fullPath)
+            Dim tempPath As String: tempPath = FixPathSeparators(fullPath)
+            With GetDriveInfo(tempPath)
                 If LenB(.driveLetter) > 0 Then
-                    GetLocalPath = FixPathSeparators(Replace(fullPath, .driveName _
-                                , .driveLetter & ":", 1, 1, vbTextCompare))
+                    GetLocalPath = Replace(tempPath, .driveName _
+                                , .driveLetter & ":", 1, 1, vbTextCompare)
                     Exit Function
                 End If
             End With
@@ -1309,60 +1282,44 @@ End Function
 #If Mac Then
 '*******************************************************************************
 'Gets path of a 'special folder' using the respective 'folder constant' on Mac
-'If 'createIfNotExists' is set to true, the function will try to create the
-'   folder if it does not currently exist on the system. Note that this argument
+'If 'createIfMissing' is set to True, the function will try to create the folder
+'   if it does not currently exist on the system. Note that this argument
 '   ignores the 'forceNonSandboxedPath' option, and it can happen that the
 '   folder gets created in the sandboxed location and the function returns a non
 '   sandboxed path. This behavior can not be avoided without creating access
-'   requests, therefore it should be taken into account by the user instead of
-'   the library.
+'   requests, therefore it should be taken into account by the user
 'The function can raise the following errors:
-'   - 5:   (Invalid procedure call) If the passed 'domainName' is invalid.
-'   - 76:  (Path not found) Will only be raised if 'createIfNotExists' = False
-'          and the function fails to find the path.
-'   - 75:  (Path/File access error) Raised if function fails to find a path,
-'          and 'createIfNotExists' = True
+'   -  5: (Invalid procedure call) if 'domainName' is invalid
+'   - 76: (Path not found) if 'createIfMissing' = False AND path not found
+'   - 75: (Path/File access error) if 'createIfMissing'= True AND path not found
 '*******************************************************************************
-Public Function GetSpecialFolderMac(ByVal macSpecialFolderConstant As String, _
-                           Optional ByVal domainName As String = "", _
-                           Optional ByVal forceNonSandboxedPath As Boolean = True, _
-                           Optional ByVal createIfNotExists As Boolean = False) As String
+Public Function GetSpecialFolderMac(ByRef specialFolderConstant As String _
+                                  , Optional ByRef domainName As String = vbNullString _
+                                  , Optional ByVal forceNonSandboxedPath As Boolean = True _
+                                  , Optional ByVal createIfMissing As Boolean = False) As String
     Const methodName As String = "GetSpecialFolderMac"
     '
     Select Case LCase$(domainName)
-    Case "system", "local", "network", "user", "classic", "" 'Fine
+    Case "system", "local", "network", "user", "classic", vbNullString
     Case Else
-        Err.Raise 5, methodName, _
-            "Invalid domain name passed to " & methodName & ": " & domainName _
-            & vbNewLine & "Possible Domains are:" & vbNewLine & _
-            "| DomainName| Location                                |" & vbLf & _
-            "|-----------|-----------------------------------------|" & vbLf & _
-            "| 'system'  | A folder in '/System/'                  |" & vbLf & _
-            "| 'local'   | A folder in '/Library/'                 |" & vbLf & _
-            "| 'network' | A folder in '/Network/'                 |" & vbLf & _
-            "| 'user'    | A folder in '~' (the user’s home folder)|" & vbLf & _
-            "| 'classic' | -||- in the Classic Mac OS system folder|" & vbLf & _
-            "|           | (Only meaningful on systems that support Classic) |"
+        Err.Raise vbErrInvalidProcedureCall, methodName, "Invalid domain name" _
+                & ". Expected one of: system, local, network, user, classic"
     End Select
     '
-    Dim domainStr As String
-    domainStr = IIf(domainName = "", "", " from " & domainName & " domain")
-    Dim folderCreationStr As String
-    folderCreationStr = IIf(createIfNotExists, " with folder creation", _
-                                               " without folder creation")
+    Dim cmd As String: cmd = specialFolderConstant
+    '
+    If LenB(domainName) > 0 Then cmd = cmd & " from " & domainName & " domain"
+    cmd = cmd & IIf(createIfMissing, " with", " without") & " folder creation"
+    cmd = "return POSIX path of (path to " & cmd & ") as string"
+    '
     On Error Resume Next
-    Dim app As Object:      Set app = Application
-    Dim inExcel As Boolean: inExcel = (app.Name = "Microsoft Excel")
+    Dim app As Object:        Set app = Application
+    Dim inExcel As Boolean:   inExcel = (app.Name = "Microsoft Excel")
+    Dim appVersion As Double: appVersion = Val(app.Version)
     On Error GoTo 0
     '
-    Dim cmd As String: cmd = "return POSIX path of (path to " & _
-        macSpecialFolderConstant & domainStr & folderCreationStr & ") as string"
-    '
-    If inExcel Then 'In old excel version
-        If Int(val(app.version)) <= 14 Then 'You run Mac Excel 2011, change cmd
-            cmd = "return (path to " & macSpecialFolderConstant & domainStr & _
-                  folderCreationStr & ") as string"
-        End If
+    If inExcel And appVersion < 15 Then 'Old excel version
+        cmd = Replace(cmd, "POSIX path of ", vbNullString, , 1)
     End If
     '
     On Error GoTo PathDoesNotExist
@@ -1370,27 +1327,19 @@ Public Function GetSpecialFolderMac(ByVal macSpecialFolderConstant As String, _
     On Error GoTo 0
     '
     If forceNonSandboxedPath Then
-        Dim sboxPath As String:  sboxPath = Environ("HOME")
-        Dim sboxRelPath As String
-        sboxRelPath = Mid(sboxPath, InStrRev(sboxPath, "/Library/Containers/"))
-        GetSpecialFolderMac = Replace(GetSpecialFolderMac, _
-                                      sboxRelPath, "", , 1, vbTextCompare)
+        Dim sboxPath As String:    sboxPath = Environ$("HOME")
+        Dim i As Long:             i = InStrRev(sboxPath, "/Library/Containers/")
+        Dim sboxRelPath As String: If i > 0 Then sboxRelPath = Mid$(sboxPath, i)
+        GetSpecialFolderMac = Replace(GetSpecialFolderMac, sboxRelPath _
+                                    , vbNullString, , 1, vbTextCompare)
     End If
-    '
-    If GetSpecialFolderMac <> vbNullString Then Exit Function
+    If LenB(GetSpecialFolderMac) > 0 Then Exit Function
 PathDoesNotExist:
-    Const callAgainPrompt As String = " You can try calling '" & methodName _
-                                      & "' again with 'createIfNotExists:=True'."
-    If createIfNotExists Then
-        Err.Raise vbErrPathFileAccessError, methodName, _
-            "Special folder '" & macSpecialFolderConstant & "' is not " & _
-            "available" & IIf(domainName = "", " or needs a specific domain.", _
-                              " in the '" & domainName & "' domain.")
+    Const errMsg As String = "Not available or needs specific domain"
+    If createIfMissing Then
+        Err.Raise vbErrPathFileAccessError, methodName, errMsg
     Else
-        Err.Raise vbErrPathNotFound, methodName, _
-            "Special folder '" & macSpecialFolderConstant & "' is not " & _
-            "available" & IIf(domainName = "", " or needs a specific domain.", _
-            " in the '" & domainName & "' domain.") & callAgainPrompt
+        Err.Raise vbErrPathNotFound, methodName, errMsg
     End If
 End Function
 #End If
