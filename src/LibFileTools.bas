@@ -1367,7 +1367,8 @@ End Sub
 'Works with both UNC paths (Win) and OneDrive/SharePoint synchronized paths
 '*******************************************************************************
 Public Function GetLocalPath(ByRef fullPath As String _
-                           , Optional ByVal rebuildCache As Boolean = False) As String
+                           , Optional ByVal rebuildCache As Boolean = False _
+                           , Optional ByVal returnInputOnFail As Boolean = False) As String
     #If Windows Then
         If InStr(1, fullPath, "https://", vbTextCompare) <> 1 Then
             Dim tempPath As String: tempPath = FixPathSeparators(fullPath)
@@ -1381,6 +1382,9 @@ Public Function GetLocalPath(ByRef fullPath As String _
         End If
     #End If
     GetLocalPath = GetOneDriveLocalPath(fullPath, rebuildCache)
+    If LenB(GetLocalPath) = 0 And returnInputOnFail Then
+        GetLocalPath = fullPath
+    End If
 End Function
 
 '*******************************************************************************
@@ -1402,13 +1406,17 @@ End Function
 'Note that the input path does not need to be an existing file/folder
 '*******************************************************************************
 Public Function GetRemotePath(ByRef fullPath As String _
-                            , Optional ByVal rebuildCache As Boolean = False) As String
+                            , Optional ByVal rebuildCache As Boolean = False _
+                            , Optional ByVal returnInputOnFail As Boolean = False) As String
     Dim tempPath As String: tempPath = FixPathSeparators(fullPath)
     #If Windows Then
         GetRemotePath = GetUNCPath(tempPath)
         If LenB(GetRemotePath) > 0 Then Exit Function
     #End If
     GetRemotePath = GetOneDriveWebPath(tempPath, rebuildCache)
+    If LenB(GetRemotePath) = 0 And returnInputOnFail Then
+        GetRemotePath = fullPath
+    End If
 End Function
 
 #If Mac Then
