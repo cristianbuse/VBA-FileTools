@@ -36,9 +36,10 @@ Attribute VB_Name = "LibFileTools"
 '' No extra library references are needed (e.g. Microsoft Scripting Runtime)
 ''
 '' Public/Exposed methods:
-''    - BrowseForFiles    (Windows only)
-''    - BrowseForFolder   (Windows only)
+''    - BrowseForFiles      (Windows only)
+''    - BrowseForFolder     (Windows only)
 ''    - BuildPath
+''    - ConvertText
 ''    - CopyFile
 ''    - CopyFolder
 ''    - CreateFolder
@@ -46,10 +47,10 @@ Attribute VB_Name = "LibFileTools"
 ''    - DeleteFolder
 ''    - FixFileName
 ''    - FixPathSeparators
-''    - GetFileOwner      (Windows only)
+''    - GetFileOwner        (Windows only)
 ''    - GetFiles
 ''    - GetFolders
-''    - GetKnownFolderWin (Windows only)
+''    - GetKnownFolderWin   (Windows only)
 ''    - GetLocalPath
 ''    - GetRemotePath
 ''    - GetSpecialFolderMac (Mac only)
@@ -1061,6 +1062,7 @@ End Function
 #If Windows Then
 '*******************************************************************************
 'Returns path of a 'known folder' using the respective 'FOLDERID' on Windows
+'Use prefixed constants 'FOLDERID_' for the 'knownFolderID' argument
 'If 'createIfMissing' is set to True, the windows API function will be called
 '   with flags 'KF_FLAG_CREATE' and 'KF_FLAG_INIT' and will create the folder
 '   if it does not currently exist on the system.
@@ -1290,6 +1292,7 @@ End Function
 #If Mac Then
 '*******************************************************************************
 'Gets path of a 'special folder' using the respective 'folder constant' on Mac
+'Use prefixed constants 'SFC_' and 'DOMAIN_' for the first 2 arguments
 'If 'createIfMissing' is set to True, the function will try to create the folder
 '   if it does not currently exist on the system. Note that this argument
 '   ignores the 'forceNonSandboxedPath' option, and it can happen that the
