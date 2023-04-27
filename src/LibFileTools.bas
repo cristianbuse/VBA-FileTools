@@ -411,10 +411,10 @@ Private m_providers As ONEDRIVE_PROVIDERS
     '   - https://stackoverflow.com/a/15546518/8488913
     '   - https://stackoverflow.com/a/37411960/8488913
 #Else
-Public Function BrowseForFiles(Optional ByVal initialPath As String _
-                             , Optional ByVal dialogTitle As String _
-                             , Optional ByVal filterDesc As String _
-                             , Optional ByVal filterList As String _
+Public Function BrowseForFiles(Optional ByRef initialPath As String _
+                             , Optional ByRef dialogTitle As String _
+                             , Optional ByRef filterDesc As String _
+                             , Optional ByRef filterList As String _
                              , Optional ByVal allowMultiFiles As Boolean = True) As Collection
     'In case reference to Microsoft Office X.XX Object Library is missing
     Const dialogTypeFilePicker As Long = 3 'msoFileDialogFilePicker
@@ -426,8 +426,8 @@ Public Function BrowseForFiles(Optional ByVal initialPath As String _
         If LenB(.InitialFileName) = 0 Then
             Dim app As Object: Set app = Application 'Needs to be late-binded
             Select Case Application.Name
-                Case "Microsoft Excel": .InitialFileName = GetLocalPath(app.ThisWorkbook.Path)
-                Case "Microsoft Word":  .InitialFileName = GetLocalPath(app.ThisDocument.Path)
+                Case "Microsoft Excel": .InitialFileName = GetLocalPath(app.ThisWorkbook.Path, , True)
+                Case "Microsoft Word":  .InitialFileName = GetLocalPath(app.ThisDocument.Path, , True)
             End Select
         End If
         '
@@ -453,8 +453,8 @@ End Function
 'Returns a folder path by using a FolderPicker FileDialog
 '*******************************************************************************
 #If Windows Then
-Public Function BrowseForFolder(Optional ByVal initialPath As String _
-                              , Optional ByVal dialogTitle As String) As String
+Public Function BrowseForFolder(Optional ByRef initialPath As String _
+                              , Optional ByRef dialogTitle As String) As String
     'In case reference to Microsoft Office X.XX Object Library is missing
     Const dialogTypeFolderPicker As Long = 4 'msoFileDialogFolderPicker
     Const actionButton As Long = -1
@@ -465,8 +465,8 @@ Public Function BrowseForFolder(Optional ByVal initialPath As String _
         If LenB(.InitialFileName) = 0 Then
             Dim app As Object: Set app = Application 'Needs to be late-binded
             Select Case Application.Name
-                Case "Microsoft Excel": .InitialFileName = GetLocalPath(app.ThisWorkbook.Path)
-                Case "Microsoft Word":  .InitialFileName = GetLocalPath(app.ThisDocument.Path)
+                Case "Microsoft Excel": .InitialFileName = GetLocalPath(app.ThisWorkbook.Path, , True)
+                Case "Microsoft Word":  .InitialFileName = GetLocalPath(app.ThisDocument.Path, , True)
             End Select
         End If
         If .Show = actionButton Then
@@ -596,8 +596,8 @@ End Function
 '   copy operations in the case where the first one fails and the second one is
 '   done after setting the destination file attribute to vbNormal.
 '*******************************************************************************
-Public Function CopyFile(ByVal sourcePath As String _
-                       , ByVal destinationPath As String _
+Public Function CopyFile(ByRef sourcePath As String _
+                       , ByRef destinationPath As String _
                        , Optional ByVal failIfExists As Boolean = False) As Boolean
     If LenB(sourcePath) = 0 Then Exit Function
     If LenB(destinationPath) = 0 Then Exit Function
@@ -629,8 +629,8 @@ End Function
 '   remaining files. This is useful when reverting a 'MoveFolder' call across
 '   different disk drives. Use this parameter with care
 '*******************************************************************************
-Public Function CopyFolder(ByVal sourcePath As String _
-                         , ByVal destinationPath As String _
+Public Function CopyFolder(ByRef sourcePath As String _
+                         , ByRef destinationPath As String _
                          , Optional ByVal includeSubFolders As Boolean = True _
                          , Optional ByVal failIfExists As Boolean = False _
                          , Optional ByVal ignoreFailedFiles As Boolean = False) As Boolean
@@ -655,7 +655,7 @@ Public Function CopyFolder(ByVal sourcePath As String _
     '
     For Each filePath In GetFiles(fixedSrc, includeSubFolders, True, True)
         newFilePath = Replace(filePath, fixedSrc, fixedDst)
-        If Not CopyFile(filePath, newFilePath, failIfExists) Then
+        If Not CopyFile(CStr(filePath), newFilePath, failIfExists) Then
             If Not ignoreFailedFiles Then Exit Function
         End If
     Next filePath
@@ -666,7 +666,7 @@ End Function
 '*******************************************************************************
 'Creates a folder including parent folders if needed
 '*******************************************************************************
-Public Function CreateFolder(ByVal folderPath As String _
+Public Function CreateFolder(ByRef folderPath As String _
                            , Optional ByVal failIfExists As Boolean = False) As Boolean
     If IsFolder(folderPath) Then
         CreateFolder = Not failIfExists
@@ -715,7 +715,7 @@ End Function
 '   case where the first one fails and the second one is done after setting the
 '   file attribute to vbNormal
 '*******************************************************************************
-Public Function DeleteFile(ByVal filePath As String) As Boolean
+Public Function DeleteFile(ByRef filePath As String) As Boolean
     If LenB(filePath) = 0 Then Exit Function
     '
     On Error Resume Next
@@ -742,7 +742,7 @@ End Function
 '   cannot delete a particular file that is locked/open and so the method stops
 '   and returns False without rolling back the already deleted files/folders)
 '*******************************************************************************
-Public Function DeleteFolder(ByVal folderPath As String _
+Public Function DeleteFolder(ByRef folderPath As String _
                            , Optional ByVal deleteContents As Boolean = False _
                            , Optional ByVal failIfMissing As Boolean = False) As Boolean
     If LenB(folderPath) = 0 Then Exit Function
@@ -776,7 +776,7 @@ End Function
 'Utility for 'DeleteFolder'
 'Deletes a folder that can contain files but does NOT contain any other folders
 '*******************************************************************************
-Private Function DeleteBottomMostFolder(ByVal folderPath As String) As Boolean
+Private Function DeleteBottomMostFolder(ByRef folderPath As String) As Boolean
     Dim fixedPath As String: fixedPath = BuildPath(folderPath, vbNullString)
     Dim filePath As Variant
     '
@@ -791,7 +791,7 @@ Private Function DeleteBottomMostFolder(ByVal folderPath As String) As Boolean
     On Error GoTo 0
     '
     For Each filePath In GetFiles(fixedPath, False, True, True)
-        If Not DeleteFile(filePath) Then Exit Function
+        If Not DeleteFile(CStr(filePath)) Then Exit Function
     Next filePath
     '
     On Error Resume Next
@@ -884,7 +884,7 @@ End Function
 'Windows file/folder reserved names: com1 to com9, lpt1 to lpt9, con, nul, prn
 '*******************************************************************************
 #If Windows Then
-Private Function IsReservedName(ByVal nameToCheck As String) As Boolean
+Private Function IsReservedName(ByRef nameToCheck As String) As Boolean
     Static collReservedNames As Collection
     Dim v As Variant
     '
@@ -999,7 +999,7 @@ End Function
 'Retrieves the owner name for a file path
 '*******************************************************************************
 #If Windows Then
-Public Function GetFileOwner(ByVal filePath As String) As String
+Public Function GetFileOwner(ByRef filePath As String) As String
     Const osi As Long = 1 'OWNER_SECURITY_INFORMATION
     Dim sdSize As Long
     '
@@ -1048,7 +1048,7 @@ End Function
 'On Windows, the vbHidden, and vbSystem attributes work fine with 'Dir' but
 '   the vbReadOnly attribute seems to be completely ignored
 '*******************************************************************************
-Public Function GetFiles(ByVal folderPath As String _
+Public Function GetFiles(ByRef folderPath As String _
                        , Optional ByVal includeSubFolders As Boolean = False _
                        , Optional ByVal includeHidden As Boolean = False _
                        , Optional ByVal includeSystem As Boolean = False) As Collection
@@ -1069,7 +1069,7 @@ Public Function GetFiles(ByVal folderPath As String _
     If includeSubFolders Then
         Dim subFolderPath As Variant
         For Each subFolderPath In GetFolders(folderPath, True, True, True)
-            AddFilesTo collFiles, subFolderPath, fAttribute
+            AddFilesTo collFiles, CStr(subFolderPath), fAttribute
         Next subFolderPath
     End If
     '
@@ -1083,7 +1083,7 @@ End Function
 '   or folders are retrieved regardless if vbHidden is used or not
 '*******************************************************************************
 Private Sub AddFilesTo(ByVal collTarget As Collection _
-                     , ByVal folderPath As String _
+                     , ByRef folderPath As String _
                      , ByVal fAttribute As VbFileAttribute)
     #If Mac Then
         Const maxDirLen As Long = 247 'To be updated
@@ -1258,7 +1258,7 @@ End Function
 '   or folders are retrieved regardless if vbHidden is used or not
 'On Windows, the vbHidden, and vbSystem attributes work fine with 'Dir'
 '*******************************************************************************
-Public Function GetFolders(ByVal folderPath As String _
+Public Function GetFolders(ByRef folderPath As String _
                          , Optional ByVal includeSubFolders As Boolean = False _
                          , Optional ByVal includeHidden As Boolean = False _
                          , Optional ByVal includeSystem As Boolean = False) As Collection
@@ -1293,7 +1293,7 @@ End Function
 '   or folders are retrieved regardless if vbHidden is used or not
 '*******************************************************************************
 Private Sub AddFoldersTo(ByVal collTarget As Collection _
-                       , ByVal folderPath As String _
+                       , ByRef folderPath As String _
                        , ByVal includeSubFolders As Boolean _
                        , ByVal fAttribute As VbFileAttribute)
     #If Mac Then
@@ -1357,7 +1357,7 @@ Private Sub AddFoldersTo(ByVal collTarget As Collection _
         '
         For Each subFolderPath In collFolders
             collTarget.Add subFolderPath
-            AddFoldersTo collTarget, subFolderPath, True, fAttribute
+            AddFoldersTo collTarget, CStr(subFolderPath), True, fAttribute
         Next subFolderPath
     End If
 End Sub
@@ -1542,7 +1542,7 @@ End Function
 'Returns basic drive information about a full path
 '*******************************************************************************
 #If Windows Then
-Private Function GetDriveInfo(ByVal fullPath As String) As DRIVE_INFO
+Private Function GetDriveInfo(ByRef fullPath As String) As DRIVE_INFO
     Dim fso As Object: Set fso = GetFSO()
     If fso Is Nothing Then Exit Function
     '
@@ -1603,8 +1603,8 @@ End Function
 'Example: \\emea\ to \\emea.companyName.net\
 '*******************************************************************************
 #If Windows Then
-Private Function AlignDriveNameIfNeeded(ByVal driveName As String _
-                                      , ByVal shareName As String) As String
+Private Function AlignDriveNameIfNeeded(ByRef driveName As String _
+                                      , ByRef shareName As String) As String
     Dim sepIndex As Long
     '
     sepIndex = InStr(3, driveName, PATH_SEPARATOR)
@@ -1626,7 +1626,7 @@ End Function
 'With the help of: @guwidoe (https://github.com/guwidoe)
 'See: https://github.com/cristianbuse/VBA-FileTools/issues/1
 '*******************************************************************************
-Private Function GetOneDriveLocalPath(ByVal odWebPath As String _
+Private Function GetOneDriveLocalPath(ByRef odWebPath As String _
                                     , ByVal rebuildCache As Boolean) As String
     If InStr(1, odWebPath, "https://", vbTextCompare) <> 1 Then Exit Function
     '
@@ -1713,18 +1713,18 @@ End Function
 'Returns the web path for a OneDrive local path
 'Returns null string if the path provided is not a valid OneDrive local path
 '*******************************************************************************
-Private Function GetOneDriveWebPath(ByVal odLocalPath As String _
+Private Function GetOneDriveWebPath(ByRef odLocalPath As String _
                                   , ByVal rebuildCache As Boolean) As String
     Dim localPath As String
     Dim rPart As String
     Dim bestMatch As Long
     Dim i As Long
+    Dim fixedPath As String: fixedPath = FixPathSeparators(odLocalPath)
     '
-    odLocalPath = FixPathSeparators(odLocalPath)
     If rebuildCache Or Not m_providers.isSet Then ReadODProviders
     For i = 1 To m_providers.pCount
         localPath = m_providers.arr(i).mountPoint
-        If StrCompLeft(odLocalPath, localPath, vbTextCompare) = 0 Then
+        If StrCompLeft(fixedPath, localPath, vbTextCompare) = 0 Then
             If bestMatch = 0 Then
                 bestMatch = i
             ElseIf Len(localPath) > Len(m_providers.arr(bestMatch).mountPoint) _
@@ -1736,7 +1736,7 @@ Private Function GetOneDriveWebPath(ByVal odLocalPath As String _
     If bestMatch = 0 Then Exit Function
     '
     With m_providers.arr(bestMatch)
-        rPart = Replace(Mid$(odLocalPath, Len(.mountPoint) + 1), "\", "/")
+        rPart = Replace(Mid$(fixedPath, Len(.mountPoint) + 1), "\", "/")
         GetOneDriveWebPath = .webPath & rPart
     End With
 End Function
@@ -2212,7 +2212,7 @@ End Sub
 '*******************************************************************************
 'Utility - Retrieves all folders from an OneDrive user .dat file
 '*******************************************************************************
-Private Function GetODDirs(ByVal filePath As String _
+Private Function GetODDirs(ByRef filePath As String _
                          , Optional ByRef outParents As Collection) As Collection
     Dim fileNumber As Long: fileNumber = FreeFile()
     '
@@ -2407,12 +2407,12 @@ End Function
 '*******************************************************************************
 'Checks if the contents of a folder can be edited
 '*******************************************************************************
-Public Function IsFolderEditable(ByVal folderPath As String) As Boolean
+Public Function IsFolderEditable(ByRef folderPath As String) As Boolean
     Dim tempFolder As String
+    Dim fixedPath As String: fixedPath = BuildPath(folderPath, vbNullString)
     '
-    folderPath = BuildPath(folderPath, vbNullString)
     Do
-        tempFolder = folderPath & Rnd()
+        tempFolder = fixedPath & Rnd()
     Loop Until Not IsFolder(tempFolder)
     '
     On Error Resume Next
@@ -2425,8 +2425,8 @@ End Function
 '*******************************************************************************
 'Moves (or renames) a file
 '*******************************************************************************
-Public Function MoveFile(ByVal sourcePath As String _
-                       , ByVal destinationPath As String) As Boolean
+Public Function MoveFile(ByRef sourcePath As String _
+                       , ByRef destinationPath As String) As Boolean
     If LenB(sourcePath) = 0 Then Exit Function
     If LenB(destinationPath) = 0 Then Exit Function
     If Not IsFile(sourcePath) Then Exit Function
@@ -2456,8 +2456,8 @@ End Function
 '*******************************************************************************
 'Moves (or renames) a folder
 '*******************************************************************************
-Public Function MoveFolder(ByVal sourcePath As String _
-                         , ByVal destinationPath As String) As Boolean
+Public Function MoveFolder(ByRef sourcePath As String _
+                         , ByRef destinationPath As String) As Boolean
     If LenB(sourcePath) = 0 Then Exit Function
     If LenB(destinationPath) = 0 Then Exit Function
     If Not IsFolder(sourcePath) Then Exit Function
@@ -2500,7 +2500,7 @@ End Function
 '*******************************************************************************
 'Reads a file into an array of Bytes
 '*******************************************************************************
-Public Sub ReadBytes(ByVal filePath As String, ByRef result() As Byte)
+Public Sub ReadBytes(ByRef filePath As String, ByRef result() As Byte)
     If Not IsFile(filePath) Then
         Erase result
         Exit Sub
