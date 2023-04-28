@@ -80,8 +80,9 @@ Option Private Module
     #End If
 #Else
     #If VBA7 Then
-        Private Declare PtrSafe Function CopyFileA Lib "kernel32" (ByVal lpExistingFileName As String, ByVal lpNewFileName As String, ByVal bFailIfExists As Long) As Long
-        Private Declare PtrSafe Function DeleteFileA Lib "kernel32" (ByVal lpFileName As String) As Long
+        Private Declare PtrSafe Function CopyFileW Lib "kernel32" (ByVal lpExistingFileName As LongPtr, ByVal lpNewFileName As LongPtr, ByVal bFailIfExists As Long) As Long
+        Private Declare PtrSafe Function DeleteFileW Lib "kernel32" (ByVal lpFileName As LongPtr) As Long
+        Private Declare PtrSafe Function RemoveDirectoryW Lib "kernel32" (ByVal lpPathName As LongPtr) As Long
         Private Declare PtrSafe Function GetFileSecurity Lib "advapi32.dll" Alias "GetFileSecurityA" (ByVal lpFileName As String, ByVal RequestedInformation As Long, pSecurityDescriptor As Byte, ByVal nLength As Long, lpnLengthNeeded As Long) As Long
         Private Declare PtrSafe Function GetSecurityDescriptorOwner Lib "advapi32.dll" (pSecurityDescriptor As Byte, pOwner As LongPtr, lpbOwnerDefaulted As LongPtr) As Long
         Private Declare PtrSafe Function LookupAccountSid Lib "advapi32.dll" Alias "LookupAccountSidA" (ByVal lpSystemName As String, ByVal Sid As LongPtr, ByVal Name As String, cbName As Long, ByVal ReferencedDomainName As String, cbReferencedDomainName As Long, peUse As LongPtr) As Long
@@ -93,8 +94,9 @@ Option Private Module
         Private Declare PtrSafe Sub CoTaskMemFree Lib "ole32" (ByVal hMem As LongPtr)
         Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByVal Destination As LongPtr, ByVal Source As LongPtr, ByVal Length As LongPtr)
     #Else
-        Private Declare Function CopyFileA Lib "kernel32" (ByVal lpExistingFileName As String, ByVal lpNewFileName As String, ByVal bFailIfExists As Long) As Long
-        Private Declare Function DeleteFileA Lib "kernel32" (ByVal lpFileName As String) As Long
+        Private Declare Function CopyFileW Lib "kernel32" (ByVal lpExistingFileName As Long, ByVal lpNewFileName As Long, ByVal bFailIfExists As Long) As Long
+        Private Declare Function DeleteFileW Lib "kernel32" (ByVal lpFileName As Long) As Long
+        Private Declare Function RemoveDirectoryW Lib "kernel32" (ByVal lpPathName As Long) As Long
         Private Declare Function GetFileSecurity Lib "advapi32.dll" Alias "GetFileSecurityA" (ByVal lpFileName As String, ByVal RequestedInformation As Long, pSecurityDescriptor As Byte, ByVal nLength As Long, lpnLengthNeeded As Long) As Long
         Private Declare Function GetSecurityDescriptorOwner Lib "advapi32.dll" (pSecurityDescriptor As Byte, pOwner As Long, lpbOwnerDefaulted As Long) As Long
         Private Declare Function LookupAccountSid Lib "advapi32.dll" Alias "LookupAccountSidA" (ByVal lpSystemName As String, ByVal Sid As Long, ByVal Name As String, cbName As Long, ByVal ReferencedDomainName As String, cbReferencedDomainName As Long, peUse As Long) As Long
@@ -617,7 +619,7 @@ Public Function CopyFile(ByRef sourcePath As String _
             SetAttr destinationPath, vbNormal 'Costly to do after Copy fails
             On Error GoTo 0
         End If
-        CopyFile = CopyFileA(sourcePath, destinationPath, failIfExists)
+        CopyFile = CopyFileW(StrPtr(sourcePath), StrPtr(destinationPath), failIfExists)
     #End If
 End Function
 
@@ -625,15 +627,15 @@ End Function
 'Copies a folder. Ability to copy all subfolders
 'If 'failIfExists' is set to True then this method will fail if any file or
 '   subFolder already exists (including the main 'destinationPath')
-'If 'ignoreFailedFiles' is set to True then the method continues to copy the
-'   remaining files. This is useful when reverting a 'MoveFolder' call across
-'   different disk drives. Use this parameter with care
+'If 'ignoreFailedChildren' is set to True then the method continues to copy the
+'   remaining files and subfolders. This is useful when reverting a 'MoveFolder'
+'   call across different disk drives. Use this parameter with care
 '*******************************************************************************
 Public Function CopyFolder(ByRef sourcePath As String _
                          , ByRef destinationPath As String _
                          , Optional ByVal includeSubFolders As Boolean = True _
                          , Optional ByVal failIfExists As Boolean = False _
-                         , Optional ByVal ignoreFailedFiles As Boolean = False) As Boolean
+                         , Optional ByVal ignoreFailedChildren As Boolean = False) As Boolean
     If Not IsFolder(sourcePath) Then Exit Function
     If Not CreateFolder(destinationPath, failIfExists) Then Exit Function
     '
@@ -646,7 +648,9 @@ Public Function CopyFolder(ByRef sourcePath As String _
         '
         For Each subFolderPath In GetFolders(fixedSrc, True, True, True)
             newFolderPath = Replace(subFolderPath, fixedSrc, fixedDst)
-            If Not CreateFolder(newFolderPath, failIfExists) Then Exit Function
+            If Not CreateFolder(newFolderPath, failIfExists) Then
+                If Not ignoreFailedChildren Then Exit Function
+            End If
         Next subFolderPath
     End If
     '
@@ -656,7 +660,7 @@ Public Function CopyFolder(ByRef sourcePath As String _
     For Each filePath In GetFiles(fixedSrc, includeSubFolders, True, True)
         newFilePath = Replace(filePath, fixedSrc, fixedDst)
         If Not CopyFile(CStr(filePath), newFilePath, failIfExists) Then
-            If Not ignoreFailedFiles Then Exit Function
+            If Not ignoreFailedChildren Then Exit Function
         End If
     Next filePath
     '
@@ -680,56 +684,55 @@ Public Function CreateFolder(ByRef folderPath As String _
     '
     Dim sepIndex As Long
     Dim collFoldersToCreate As New Collection
-    Dim i As Long
+    Dim v As Variant
     '
     'Note that the same outcome could be achieved via recursivity but this
     '   approach avoids adding extra stack frames to the call stack
+    collFoldersToCreate.Add fullPath
     Do
-        collFoldersToCreate.Add fullPath
-        '
         sepIndex = InStrRev(fullPath, PATH_SEPARATOR)
         If sepIndex < 3 Then Exit Do
         '
         fullPath = Left$(fullPath, sepIndex - 1)
         If IsFolder(fullPath) Then Exit Do
+        collFoldersToCreate.Add fullPath, Before:=1
     Loop
     On Error Resume Next
-    For i = collFoldersToCreate.Count To 1 Step -1
+    For Each v In collFoldersToCreate
         'MkDir does not support all Unicode characters, unlike FSO
         #If Mac Then
-            MkDir collFoldersToCreate(i)
+            MkDir v
         #Else
-            GetFSO.CreateFolder collFoldersToCreate(i)
+            GetFSO.CreateFolder v
         #End If
         If Err.Number <> 0 Then Exit For
-    Next i
+    Next v
     CreateFolder = (Err.Number = 0)
     On Error GoTo 0
 End Function
 
 '*******************************************************************************
 'Deletes a file only. Does not support wildcards * ?
-'Rather than failing and then trying again with attribute set to vbNormal this
-'   method sets the attribute to normal before deleting. This is slightly slower
-'   than just deleting directly but far outperforms two delete operations in the
-'   case where the first one fails and the second one is done after setting the
-'   file attribute to vbNormal
 '*******************************************************************************
 Public Function DeleteFile(ByRef filePath As String) As Boolean
     If LenB(filePath) = 0 Then Exit Function
+    If Not IsFile(filePath) Then Exit Function 'Avoid 'Kill' on folder
     '
     On Error Resume Next
+    #If Windows Then
+        GetFSO.DeleteFile filePath, True
+        DeleteFile = (Err.Number = 0)
+        If DeleteFile Then Exit Function
+        Err.Clear
+    #End If
     SetAttr filePath, vbNormal 'Too costly to do after failing Delete
+    Err.Clear
+    Kill filePath
+    DeleteFile = (Err.Number = 0)
     On Error GoTo 0
     '
-    #If Mac Then
-        If Not IsFile(filePath) Then Exit Function 'Avoid 'Kill' on folder
-        On Error Resume Next
-        Kill filePath
-        DeleteFile = (Err.Number = 0)
-        On Error GoTo 0
-    #Else
-        DeleteFile = CBool(DeleteFileA(filePath))
+    #If Windows Then
+        If Not DeleteFile Then DeleteFile = CBool(DeleteFileW(StrPtr(filePath)))
     #End If
 End Function
 
@@ -754,12 +757,15 @@ Public Function DeleteFolder(ByRef folderPath As String _
     '
     On Error Resume Next
     RmDir folderPath 'Assume the folder is empty
-    If Err.Number = 0 Then
-        DeleteFolder = True
-        Exit Function
-    End If
-    On Error GoTo 0
+    DeleteFolder = (Err.Number = 0)
+    If DeleteFolder Then Exit Function
+    '
+    Err.Clear
     If Not deleteContents Then Exit Function
+    GetFSO.DeleteFolder folderPath, True
+    DeleteFolder = (Err.Number = 0)
+    If DeleteFolder Then Exit Function
+    On Error GoTo 0
     '
     Dim collFolders As Collection
     Dim i As Long
@@ -798,6 +804,10 @@ Private Function DeleteBottomMostFolder(ByRef folderPath As String) As Boolean
     RmDir fixedPath
     DeleteBottomMostFolder = (Err.Number = 0)
     On Error GoTo 0
+    '
+    If Not DeleteBottomMostFolder Then
+        DeleteBottomMostFolder = CBool(RemoveDirectoryW(StrPtr(fixedPath)))
+    End If
 End Function
 
 '*******************************************************************************
@@ -2489,7 +2499,7 @@ Public Function MoveFolder(ByRef sourcePath As String _
         DeleteFolder destinationPath, True
         Exit Function
     ElseIf Not DeleteFolder(sourcePath, True) Then 'Files might be open. Revert
-        CopyFolder destinationPath, sourcePath, ignoreFailedFiles:=True
+        CopyFolder destinationPath, sourcePath, ignoreFailedChildren:=True
         DeleteFolder destinationPath, True
         Exit Function
     End If
