@@ -1568,15 +1568,19 @@ Private Function GetDriveInfo(ByRef fullPath As String) As DRIVE_INFO
     If LenB(fsDrive.driveLetter) = 0 Then
         Dim sn As Long: sn = fsDrive.SerialNumber
         Dim tempDrive As Object
+        Dim tempSN As Long
         Dim isFound As Boolean
         '
+        On Error Resume Next 'In case Drive is not connected
         For Each tempDrive In fso.Drives
-            If tempDrive.SerialNumber = sn Then
+            tempSN = tempDrive.SerialNumber
+            If tempSN = sn Then
                 Set fsDrive = tempDrive
                 isFound = True
                 Exit For
             End If
         Next tempDrive
+        On Error GoTo 0
         If Not isFound Then Exit Function
     End If
     '
