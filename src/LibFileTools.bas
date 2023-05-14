@@ -454,9 +454,27 @@ End Function
 '*******************************************************************************
 'Returns a folder path by using a FolderPicker FileDialog
 '*******************************************************************************
-#If Windows Then
 Public Function BrowseForFolder(Optional ByRef initialPath As String _
                               , Optional ByRef dialogTitle As String) As String
+#If Mac Then
+    'If user has not accesss [initialPath] previously, will be prompted by
+    'Mac OS to Grant permission to directory
+    If LenB(initialPath) > 0 Then
+        If Not Right(initialPath, 1) = Application.PathSeparator Then
+            initialPath = initialPath & Application.PathSeparator
+        End If
+        Dir initialPath, Attributes:=vbDirectory
+    End If
+    Dim retPath
+    If LenB(dialogTitle) = 0 Then dialogTitle = "Choose Foldler"
+    retPath = MacScript("choose folder with prompt """ & dialogTitle & """ as string")
+    If Len(retPath) > 0 Then
+        retPath = MacScript("POSIX path of """ & retPath & """")
+        If LenB(retPath) > 0 Then
+            BrowseForFolder = retPath
+        End If
+    End If
+#ElseIf Windows Then
     'In case reference to Microsoft Office X.XX Object Library is missing
     Const dialogTypeFolderPicker As Long = 4 'msoFileDialogFolderPicker
     Const actionButton As Long = -1
@@ -476,8 +494,8 @@ Public Function BrowseForFolder(Optional ByRef initialPath As String _
             BrowseForFolder = .InitialFileName
         End If
     End With
-End Function
 #End If
+End Function
 
 '*******************************************************************************
 'Combines a folder path with a file/folder name or an incomplete path (ex. \a\b)
@@ -745,6 +763,7 @@ End Function
 '   cannot delete a particular file that is locked/open and so the method stops
 '   and returns False without rolling back the already deleted files/folders)
 '*******************************************************************************
+#If Windows Then
 Public Function DeleteFolder(ByRef folderPath As String _
                            , Optional ByVal deleteContents As Boolean = False _
                            , Optional ByVal failIfMissing As Boolean = False) As Boolean
@@ -777,11 +796,13 @@ Public Function DeleteFolder(ByRef folderPath As String _
     '
     DeleteFolder = DeleteBottomMostFolder(folderPath)
 End Function
+#End If
 
 '*******************************************************************************
 'Utility for 'DeleteFolder'
 'Deletes a folder that can contain files but does NOT contain any other folders
 '*******************************************************************************
+#If Windows Then
 Private Function DeleteBottomMostFolder(ByRef folderPath As String) As Boolean
     Dim fixedPath As String: fixedPath = BuildPath(folderPath, vbNullString)
     Dim filePath As Variant
@@ -809,6 +830,7 @@ Private Function DeleteBottomMostFolder(ByRef folderPath As String) As Boolean
         DeleteBottomMostFolder = CBool(RemoveDirectoryW(StrPtr(fixedPath)))
     End If
 End Function
+#End If
 
 '*******************************************************************************
 'Fixes a file or folder name, NOT a path
@@ -2470,6 +2492,7 @@ End Function
 '*******************************************************************************
 'Moves (or renames) a folder
 '*******************************************************************************
+#If Windows Then
 Public Function MoveFolder(ByRef sourcePath As String _
                          , ByRef destinationPath As String) As Boolean
     If LenB(sourcePath) = 0 Then Exit Function
@@ -2510,6 +2533,7 @@ Public Function MoveFolder(ByRef sourcePath As String _
     '
     MoveFolder = True
 End Function
+#End If
 
 '*******************************************************************************
 'Reads a file into an array of Bytes
