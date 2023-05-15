@@ -454,9 +454,27 @@ End Function
 '*******************************************************************************
 'Returns a folder path by using a FolderPicker FileDialog
 '*******************************************************************************
-#If Windows Then
 Public Function BrowseForFolder(Optional ByRef initialPath As String _
                               , Optional ByRef dialogTitle As String) As String
+#If Mac Then
+    'If user has not accesss [initialPath] previously, will be prompted by
+    'Mac OS to Grant permission to directory
+    If LenB(initialPath) > 0 Then
+        If Not Right(initialPath, 1) = Application.PathSeparator Then
+            initialPath = initialPath & Application.PathSeparator
+        End If
+        Dir initialPath, Attributes:=vbDirectory
+    End If
+    Dim retPath
+    If LenB(dialogTitle) = 0 Then dialogTitle = "Choose Foldler"
+    retPath = MacScript("choose folder with prompt """ & dialogTitle & """ as string")
+    If Len(retPath) > 0 Then
+        retPath = MacScript("POSIX path of """ & retPath & """")
+        If LenB(retPath) > 0 Then
+            BrowseForFolder = retPath
+        End If
+    End If
+#ElseIf Windows Then
     'In case reference to Microsoft Office X.XX Object Library is missing
     Const dialogTypeFolderPicker As Long = 4 'msoFileDialogFolderPicker
     Const actionButton As Long = -1
@@ -476,8 +494,8 @@ Public Function BrowseForFolder(Optional ByRef initialPath As String _
             BrowseForFolder = .InitialFileName
         End If
     End With
-End Function
 #End If
+End Function
 
 '*******************************************************************************
 'Combines a folder path with a file/folder name or an incomplete path (ex. \a\b)
@@ -760,12 +778,14 @@ Public Function DeleteFolder(ByRef folderPath As String _
     DeleteFolder = (Err.Number = 0)
     If DeleteFolder Then Exit Function
     '
-    Err.Clear
-    If Not deleteContents Then Exit Function
-    GetFSO.DeleteFolder folderPath, True
-    DeleteFolder = (Err.Number = 0)
-    If DeleteFolder Then Exit Function
+    #If Windows Then
+        Err.Clear
+        GetFSO.DeleteFolder folderPath, True
+        DeleteFolder = (Err.Number = 0)
+        If DeleteFolder Then Exit Function
+    #End If
     On Error GoTo 0
+    If Not deleteContents Then Exit Function
     '
     Dim collFolders As Collection
     Dim i As Long
@@ -805,9 +825,11 @@ Private Function DeleteBottomMostFolder(ByRef folderPath As String) As Boolean
     DeleteBottomMostFolder = (Err.Number = 0)
     On Error GoTo 0
     '
-    If Not DeleteBottomMostFolder Then
-        DeleteBottomMostFolder = CBool(RemoveDirectoryW(StrPtr(fixedPath)))
-    End If
+    #If Windows Then
+        If Not DeleteBottomMostFolder Then
+            DeleteBottomMostFolder = CBool(RemoveDirectoryW(StrPtr(fixedPath)))
+        End If
+    #End If
 End Function
 
 '*******************************************************************************
@@ -1143,11 +1165,11 @@ Private Sub AddFilesTo(ByVal collTarget As Collection _
     Next v
 End Sub
 
-#If Windows Then
 '*******************************************************************************
 'For long paths FSO fails in either retrieving the folder or it retrieves the
 '   folder but the SubFolders or Files collections are not correctly populated
 '*******************************************************************************
+#If Windows Then
 Private Function GetFSOFolder(ByRef folderPath As String) As Object
     If Not IsFolder(folderPath) Then Exit Function
     '
@@ -1191,7 +1213,6 @@ Private Function GetFSOFolder(ByRef folderPath As String) As Object
 End Function
 #End If
 
-#If Windows Then
 '*******************************************************************************
 'Returns path of a 'known folder' using the respective 'FOLDERID' on Windows
 'Use prefixed constants 'FOLDERID_' for the 'knownFolderID' argument
@@ -1208,6 +1229,7 @@ End Function
 '          FOLDERID itself are not registered in the windows registry
 '   -  51: (Internal error) if an unexpected error occurs
 '*******************************************************************************
+#If Windows Then
 Public Function GetKnownFolderWin(ByRef knownFolderID As String, _
                          Optional ByVal createIfMissing As Boolean = False) As String
     Const methodName As String = "GetKnownFolderWin"
