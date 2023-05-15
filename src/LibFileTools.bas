@@ -763,7 +763,6 @@ End Function
 '   cannot delete a particular file that is locked/open and so the method stops
 '   and returns False without rolling back the already deleted files/folders)
 '*******************************************************************************
-#If Windows Then
 Public Function DeleteFolder(ByRef folderPath As String _
                            , Optional ByVal deleteContents As Boolean = False _
                            , Optional ByVal failIfMissing As Boolean = False) As Boolean
@@ -779,12 +778,14 @@ Public Function DeleteFolder(ByRef folderPath As String _
     DeleteFolder = (Err.Number = 0)
     If DeleteFolder Then Exit Function
     '
-    Err.Clear
-    If Not deleteContents Then Exit Function
-    GetFSO.DeleteFolder folderPath, True
-    DeleteFolder = (Err.Number = 0)
-    If DeleteFolder Then Exit Function
+    #If Windows Then
+        Err.Clear
+        GetFSO.DeleteFolder folderPath, True
+        DeleteFolder = (Err.Number = 0)
+        If DeleteFolder Then Exit Function
+    #End If
     On Error GoTo 0
+    If Not deleteContents Then Exit Function
     '
     Dim collFolders As Collection
     Dim i As Long
@@ -796,13 +797,11 @@ Public Function DeleteFolder(ByRef folderPath As String _
     '
     DeleteFolder = DeleteBottomMostFolder(folderPath)
 End Function
-#End If
 
 '*******************************************************************************
 'Utility for 'DeleteFolder'
 'Deletes a folder that can contain files but does NOT contain any other folders
 '*******************************************************************************
-#If Windows Then
 Private Function DeleteBottomMostFolder(ByRef folderPath As String) As Boolean
     Dim fixedPath As String: fixedPath = BuildPath(folderPath, vbNullString)
     Dim filePath As Variant
@@ -826,11 +825,12 @@ Private Function DeleteBottomMostFolder(ByRef folderPath As String) As Boolean
     DeleteBottomMostFolder = (Err.Number = 0)
     On Error GoTo 0
     '
-    If Not DeleteBottomMostFolder Then
-        DeleteBottomMostFolder = CBool(RemoveDirectoryW(StrPtr(fixedPath)))
-    End If
+    #If Windows Then
+        If Not DeleteBottomMostFolder Then
+            DeleteBottomMostFolder = CBool(RemoveDirectoryW(StrPtr(fixedPath)))
+        End If
+    #End If
 End Function
-#End If
 
 '*******************************************************************************
 'Fixes a file or folder name, NOT a path
@@ -1165,11 +1165,11 @@ Private Sub AddFilesTo(ByVal collTarget As Collection _
     Next v
 End Sub
 
-#If Windows Then
 '*******************************************************************************
 'For long paths FSO fails in either retrieving the folder or it retrieves the
 '   folder but the SubFolders or Files collections are not correctly populated
 '*******************************************************************************
+#If Windows Then
 Private Function GetFSOFolder(ByRef folderPath As String) As Object
     If Not IsFolder(folderPath) Then Exit Function
     '
@@ -1213,7 +1213,6 @@ Private Function GetFSOFolder(ByRef folderPath As String) As Object
 End Function
 #End If
 
-#If Windows Then
 '*******************************************************************************
 'Returns path of a 'known folder' using the respective 'FOLDERID' on Windows
 'Use prefixed constants 'FOLDERID_' for the 'knownFolderID' argument
@@ -1230,6 +1229,7 @@ End Function
 '          FOLDERID itself are not registered in the windows registry
 '   -  51: (Internal error) if an unexpected error occurs
 '*******************************************************************************
+#If Windows Then
 Public Function GetKnownFolderWin(ByRef knownFolderID As String, _
                          Optional ByVal createIfMissing As Boolean = False) As String
     Const methodName As String = "GetKnownFolderWin"
@@ -2492,7 +2492,6 @@ End Function
 '*******************************************************************************
 'Moves (or renames) a folder
 '*******************************************************************************
-#If Windows Then
 Public Function MoveFolder(ByRef sourcePath As String _
                          , ByRef destinationPath As String) As Boolean
     If LenB(sourcePath) = 0 Then Exit Function
@@ -2533,7 +2532,6 @@ Public Function MoveFolder(ByRef sourcePath As String _
     '
     MoveFolder = True
 End Function
-#End If
 
 '*******************************************************************************
 'Reads a file into an array of Bytes
