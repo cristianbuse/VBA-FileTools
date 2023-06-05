@@ -39,7 +39,7 @@ Attribute VB_Name = "LibFileTools"
 ''    - BrowseForFiles      (Windows only)
 ''    - BrowseForFolder     (Windows only)
 ''    - BuildPath
-''    - PathJoin
+''    - JoinPath
 ''    - ConvertText
 ''    - CopyFile
 ''    - CopyFolder
@@ -510,45 +510,8 @@ End Function
 '*******************************************************************************
 'Combines a folders and filename with the appropriate path seperator (ex. \a\b)
 '*******************************************************************************
-Public Function PathJoin(ParamArray PathComponents() As Variant) As String
-    Const ps As String = PATH_SEPARATOR
-    Dim LowerBound As Integer
-    Dim UpperBound As Integer
-    Dim Component As String
-    
-    LowerBound = LBound(PathComponents)
-    UpperBound = UBound(PathComponents)
-    
-    Dim indx As Integer
-    
-    For indx = LowerBound To UpperBound
-        Component = CStr(PathComponents(indx))
-        'Strip trailing slash if necessary
-        If Right(Component, 1) = ps Then Component = Left(Component, Len(Component) - 1)
-        
-        'Strip leading slash if necessary
-        If indx > LowerBound And Left(Component, 1) = ps Then Component = Mid(Component, 2)
-            If indx <> UpperBound Then
-                If Component <> "" And PathJoin <> "" Then
-                    PathJoin = PathJoin & ps & Component
-                ElseIf Component <> "" Then
-                    PathJoin = Component
-                End If
-            Else
-                If CStr(PathComponents(indx)) = ps And Right(PathJoin, Len(ps)) <> ps Then
-                    'Add a trailing slash
-                    PathJoin = PathJoin & ps
-                Else
-                    If Component <> "" And PathJoin <> "" Then
-                        PathJoin = PathJoin & ps & Component
-                    ElseIf Component <> "" Then
-                        PathJoin = Component
-                End If
-            End If
-        End If
-    Next
-    
-    PathJoin = FixPathSeparators(PathJoin)
+Public Function JoinPath(ParamArray PathComponents() As Variant) As String
+    PathJoin = FixPathSeparators(Join(PathComponents, PATH_SEPARATOR))
 End Function
 
 '*******************************************************************************
