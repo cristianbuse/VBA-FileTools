@@ -500,9 +500,8 @@ End Function
 '*******************************************************************************
 'Combines a folder path with a file/folder name or an incomplete path (ex. \a\b)
 '*******************************************************************************
-Public Function BuildPath(ByRef folderPath As String _
-                        , ByRef fsName As String) As String
-    BuildPath = FixPathSeparators(folderPath & PATH_SEPARATOR & fsName)
+Public Function BuildPath(ParamArray PathComponents() As Variant) As String
+    BuildPath = FixPathSeparators(Join(PathComponents, PATH_SEPARATOR))
 End Function
 
 '*******************************************************************************
