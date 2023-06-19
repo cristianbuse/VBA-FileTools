@@ -2284,7 +2284,7 @@ Private Function GetODDirs(ByRef filePath As String _
     Dim hFolder As String:    hFolder = ChrB$(2) 'x02
     Dim hCheck As String * 4: MidB$(hCheck, 1) = ChrB$(1) 'x01000000
     '
-    idPattern = Replace(Space$(16), " ", "[a-fA-F0-9]") & "*"
+    idPattern = Replace(Space$(12), " ", "[a-fA-F0-9]") & "*"
     For stepSize = 16 To 8 Step -8
         lastFileChange = 0
         Do
