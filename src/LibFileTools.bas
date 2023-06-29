@@ -2102,7 +2102,7 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
                 cSignature = "_" & temp(3) & temp(1)
                 tempURL = GetUrlNamespace(aInfo.clientPath, cSignature)
             End If
-            If Not canAdd Then cPending.Add tempURL, Split(parts(0), " ")(2)
+            cPending.Add tempURL, Split(parts(0), " ")(2)
         Case "libraryFolder "
             If cFolders Is Nothing Then
                 Set cFolders = GetODDirs(aInfo.datPath, cParents)
