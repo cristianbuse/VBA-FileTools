@@ -369,17 +369,19 @@ Private Type ONEDRIVE_PROVIDERS
 End Type
 
 Private Type ONEDRIVE_ACCOUNT_INFO
-    accountName As String
     accountIndex As Long
+    accountName As String
     cID As String
+    clientPath As String
     datPath As String
-    datDateTime As Date
+    dbPath As String
     folderPath As String
     groupPath As String
-    clientPath As String
+    iniDateTime As Date
     iniPath As String
     isPersonal As Boolean
     isValid As Boolean
+    hasDatFile As Boolean
 End Type
 Private Type ONEDRIVE_ACCOUNTS_INFO
     arr() As ONEDRIVE_ACCOUNT_INFO
@@ -1373,9 +1375,11 @@ Private Sub AddFoldersTo(ByVal collTarget As Collection _
             Dim fsoFolder As Object: Set fsoFolder = GetFSOFolder(fixedPath)
             '
             If Not fsoFolder Is Nothing Then
+                On Error Resume Next
                 For Each fsoDir In fsoFolder.SubFolders
                     collFolders.Add fixedPath & fsoDir.Name
                 Next fsoDir
+                On Error GoTo 0
             End If
         #End If
     End If
@@ -1798,6 +1802,7 @@ Private Sub ReadODProviders()
             With accountsInfo.arr(i)
                 collFiles.Add .iniPath
                 collFiles.Add .datPath
+                collFiles.Add .dbPath
                 collFiles.Add .clientPath
                 If .isPersonal Then
                     collFiles.Add .groupPath
@@ -1934,10 +1939,10 @@ Private Sub ValidateAccounts(ByRef a1 As ONEDRIVE_ACCOUNT_INFO _
     If a1.accountName <> a2.accountName Then Exit Sub
     If Not (a1.isValid And a2.isValid) Then Exit Sub
     '
-    If a1.datDateTime = 0 Then a1.datDateTime = FileDateTime(a1.datPath)
-    If a2.datDateTime = 0 Then a2.datDateTime = FileDateTime(a2.datPath)
+    If a1.iniDateTime = 0 Then a1.iniDateTime = FileDateTime(a1.iniPath)
+    If a2.iniDateTime = 0 Then a2.iniDateTime = FileDateTime(a2.iniPath)
     '
-    a1.isValid = (a1.datDateTime > a2.datDateTime)
+    a1.isValid = (a1.iniDateTime > a2.iniDateTime)
     a2.isValid = Not a1.isValid
 End Sub
 
@@ -1951,7 +1956,7 @@ Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
     Dim folderPath As Variant
     Dim i As Long
     Dim mask As String
-    Dim datName As String
+    Dim iniName As String
     Dim collFolders As Collection: Set collFolders = GetODAccountDirs()
     '
     accountsInfo.pCount = 0
@@ -1972,18 +1977,20 @@ Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
                 mask = businessMask
                 .accountIndex = CLng(Right$(.accountName, 1))
             End If
-            datName = Dir(BuildPath(.folderPath, mask & ".dat"))
-            If LenB(datName) > 0 Then
-                .cID = Left$(datName, Len(datName) - 4)
-                .datPath = .folderPath & ps & datName
+            iniName = Dir(BuildPath(.folderPath, mask & ".ini"))
+            If LenB(iniName) > 0 Then
+                .cID = Left$(iniName, Len(iniName) - 4)
+                .datPath = .folderPath & ps & .cID & ".dat"
+                .dbPath = .folderPath & ps & "SyncEngineDatabase.db"
                 .groupPath = .folderPath & ps & "GroupFolders.ini"
-                .iniPath = .folderPath & ps & .cID & ".ini"
+                .iniPath = .folderPath & ps & iniName
                 .clientPath = .folderPath & ps & "ClientPolicy.ini"
                 #If Mac Then 'Avoid Mac File Access Request
-                    .isValid = (Dir(.iniPath & "*") = .cID & ".ini")
+                    .hasDatFile = (Dir(.datPath & "*") = .cID & ".dat")
                 #Else
-                    .isValid = IsFile(.iniPath)
+                    .hasDatFile = IsFile(.datPath)
                 #End If
+                .isValid = True
             End If
             If Not .isValid Then i = i - 1
         End With
@@ -2078,7 +2085,7 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
     Dim mainSyncID As String
     Dim tempURL As String
     Dim cSignature As String
-    Dim cFolders As Collection
+    Dim cDirs As Collection
     Dim cParents As Collection
     Dim cPending As New Collection
     Dim canAdd As Boolean
@@ -2104,32 +2111,29 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             End If
             cPending.Add tempURL, Split(parts(0), " ")(2)
         Case "libraryFolder "
-            If cFolders Is Nothing Then
-                Set cFolders = GetODDirs(aInfo.datPath, cParents)
-            End If
+            If cDirs Is Nothing Then Set cDirs = GetODDirs(aInfo, cParents)
             tempMount = parts(1)
             temp = Split(parts(0), " ")
             tempURL = cPending(temp(3))
             syncID = Split(parts(4), " ")(1)
-            Dim tempID As String:     tempID = Split(temp(4), "+")(0)
+            Dim tempID As String:     tempID = temp(4)
             Dim tempFolder As String: tempFolder = vbNullString
+            If aInfo.hasDatFile Then tempID = Split(tempID, "+")(0)
             On Error Resume Next
             Do
-                tempFolder = cFolders(tempID) & "/" & tempFolder
+                tempFolder = cDirs(tempID) & "/" & tempFolder
                 tempID = cParents(tempID)
             Loop Until Err.Number <> 0
             On Error GoTo 0
             canAdd = (LenB(tempFolder) > 0)
             tempURL = tempURL & tempFolder
         Case "AddedScope "
-            If cFolders Is Nothing Then
-                Set cFolders = GetODDirs(aInfo.datPath, cParents)
-            End If
+            If cDirs Is Nothing Then Set cDirs = GetODDirs(aInfo, cParents)
             tempID = Split(parts(0), " ")(3)
             tempFolder = vbNullString
             On Error Resume Next
             Do
-                tempFolder = cFolders(tempID) & PATH_SEPARATOR & tempFolder
+                tempFolder = cDirs(tempID) & PATH_SEPARATOR & tempFolder
                 tempID = cParents(tempID)
             Loop Until Err.Number <> 0
             On Error GoTo 0
@@ -2182,14 +2186,26 @@ End Function
 '*******************************************************************************
 Private Function GetTagValue(ByRef filePath As String _
                            , ByRef vTag As String) As String
-    Dim bytes() As Byte: ReadBytes filePath, bytes
-    Dim fText As String: fText = bytes
+    Dim bytes() As Byte
+    Dim fText As String
+    Dim i As Long
     '
+    On Error Resume Next
+    ReadBytes filePath, bytes
+    fText = bytes
     #If Mac Then
-        fText = ConvertText(fText, codeUTF16LE, codeUTF8, True)
+        If Err.Number = 0 Then
+            fText = ConvertText(fText, codeUTF16LE, codeUTF8, True)
+        Else 'Open failed, try AppleScript with no text conversion needed
+            Dim tempPath As String
+            tempPath = MacScript("return path to startup disk as string") _
+                     & Replace(Mid$(filePath, 2), PATH_SEPARATOR, ":")
+            fText = MacScript("return read file """ & tempPath & """ as string")
+        End If
     #End If
+    On Error GoTo 0
     '
-    Dim i As Long: i = InStr(1, fText, vTag) + Len(vTag)
+    i = InStr(1, fText, vTag) + Len(vTag)
     GetTagValue = Mid$(fText, i, InStr(i, fText, vbNewLine) - i)
 End Function
 
@@ -2209,7 +2225,7 @@ Private Sub AddPersonalProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
     Dim i As Long
     Dim relPath As String
     Dim folderID As String
-    Dim cFolders As Collection
+    Dim cDirs As Collection
     '
     With m_providers.arr(AddProvider())
         .webPath = mainURL & aInfo.cID & "/"
@@ -2230,12 +2246,10 @@ Private Sub AddPersonalProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             If i > 0 Then
                 relPath = Mid$(lineText, i + 8)
                 folderID = Left$(lineText, i - 1)
-                If cFolders Is Nothing Then
-                    Set cFolders = GetODDirs(aInfo.datPath)
-                End If
+                If cDirs Is Nothing Then Set cDirs = GetODDirs(aInfo)
                 With m_providers.arr(AddProvider())
                     .webPath = mainURL & cID & "/" & relPath & "/"
-                    .mountPoint = BuildPath(mainMount, cFolders(folderID) & "/")
+                    .mountPoint = BuildPath(mainMount, cDirs(folderID) & "/")
                     .baseMount = mainMount
                     .syncID = syncID
                 End With
@@ -2245,10 +2259,22 @@ Private Sub AddPersonalProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
 End Sub
 
 '*******************************************************************************
-'Utility - Retrieves all folders from an OneDrive user .dat file
+'Utility - Retrieves all folders from an OneDrive account
 '*******************************************************************************
-Private Function GetODDirs(ByRef filePath As String _
+Private Function GetODDirs(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO _
                          , Optional ByRef outParents As Collection) As Collection
+    Set GetODDirs = GetODDirsFromDat(aInfo.datPath, outParents)
+    If GetODDirs Is Nothing Then
+        Set GetODDirs = GetODDirsFromDB(aInfo.dbPath, outParents)
+    End If
+End Function
+
+'*******************************************************************************
+'Utility - Retrieves all folders from an OneDrive user dat file
+'*******************************************************************************
+Private Function GetODDirsFromDat(ByRef filePath As String _
+                                , ByRef outParents As Collection) As Collection
+    If Not IsFile(filePath) Then Exit Function
     Dim fileNumber As Long: fileNumber = FreeFile()
     '
     Open filePath For Binary Access Read As #fileNumber
@@ -2271,7 +2297,7 @@ Private Function GetODDirs(ByRef filePath As String _
     Dim s As String
     Dim lastRecord As Long
     Dim i As Long
-    Dim cFolders As Collection
+    Dim cDirs As Collection
     Dim lastFileChange As Date
     Dim currFileChange As Date
     Dim stepSize As Long
@@ -2291,7 +2317,7 @@ Private Function GetODDirs(ByRef filePath As String _
             i = 0
             currFileChange = FileDateTime(filePath)
             If currFileChange > lastFileChange Then
-                Set cFolders = New Collection
+                Set cDirs = New Collection
                 Set outParents = New Collection
                 lastFileChange = currFileChange
                 lastRecord = 1
@@ -2333,7 +2359,7 @@ Private Function GetODDirs(ByRef filePath As String _
                             folderName = ConvertText(folderName, codeUTF16LE _
                                                    , codeUTF32LE, True)
                         #End If
-                        cFolders.Add folderName, folderID
+                        cDirs.Add folderName, folderID
                         outParents.Add parentID, folderID
                     End If
                 End If
@@ -2344,9 +2370,9 @@ Private Function GetODDirs(ByRef filePath As String _
                 lastRecord = lastRecord - chunkSize + (i \ 2) * 2
             End If
         Loop Until lastRecord > size
-        If cFolders.Count > 0 Then Exit For
+        If cDirs.Count > 0 Then Exit For
     Next stepSize
-    Set GetODDirs = cFolders
+    Set GetODDirsFromDat = cDirs
 CloseFile:
     Close #fileNumber
 End Function
@@ -2358,6 +2384,173 @@ Private Function Clamp(ByVal v As Long, ByVal lowB As Long, uppB As Long) As Lon
     Else
         Clamp = v
     End If
+End Function
+
+'*******************************************************************************
+'Utility - Retrieves all folders from an OneDrive user database file
+'*******************************************************************************
+Private Function GetODDirsFromDB(ByRef filePath As String _
+                               , ByRef outParents As Collection) As Collection
+    If Not IsFile(filePath) Then Exit Function
+    Dim fileNumber As Long: fileNumber = FreeFile()
+    '
+    Open filePath For Binary Access Read As #fileNumber
+    Dim size As Long: size = LOF(fileNumber)
+    If size = 0 Then GoTo CloseFile
+    '                             __    ____
+    'Signature bytes: 0b0b0b0b0b0b080b0b08080b0b0b0b where b>=0, b <= 9
+    Dim sig88 As String: sig88 = ChrW$(&H808)
+    Const sig8 As Long = 8
+    Const sig8Offset As Long = -3
+    Const maxSigByte As Byte = 9
+    Const sig88ToDataOffset As Long = 6 'Data comes after the signature
+    Const headBytes6 As Long = &H16
+    Const headBytes5 As Long = &H15
+    Const headBytes6Offset As Long = -16 'Header comes before the signature
+    Const headBytes5Offset As Long = -15
+    Const chunkSize As Long = &H100000 '1MB
+    '
+    Dim b(1 To chunkSize) As Byte
+    Dim s As String
+    Dim lastRecord As Long
+    Dim idPattern As String
+    Dim i As Long
+    Dim j As Long
+    Dim k As Long
+    Dim cDirs As Collection
+    Dim bytes As Long
+    Dim idSize(1 To 4) As Byte
+    Dim nameSize As Long
+    Dim folderID As String
+    Dim lastFolderID As String
+    Dim parentID As String
+    Dim lastParentID As String
+    Dim folderName As String
+    Dim lastFolderName As String
+    Dim currDataEnd As Long
+    Dim lastDataEnd As Long
+    Dim headByte As Byte
+    Dim lastHeadByte
+    Dim has5HeadBytes As Boolean
+    Dim heads As New Collection
+    '
+    idPattern = Replace(Space$(12), " ", "[a-fA-F0-9]") & "*"
+    Do
+        Dim currFileChange As Date: currFileChange = FileDateTime(filePath)
+        Dim lastFileChange As Date
+        '
+        i = 0
+        If currFileChange > lastFileChange Then
+            Set cDirs = New Collection
+            Set outParents = New Collection
+            lastFileChange = currFileChange
+            lastRecord = 1
+        End If
+        Get fileNumber, lastRecord, b
+        s = b
+        i = InStrB(1 - headBytes6Offset, s, sig88)
+        lastDataEnd = 0
+        Do While i > 0
+            If i + headBytes6Offset - 2 > lastDataEnd And LenB(lastFolderID) > 0 Then
+                On Error Resume Next 'Ignore duplicates
+                cDirs.Add lastFolderName, lastFolderID
+                If Err.Number <> 0 Then
+                    If cDirs(lastFolderID) <> lastFolderName _
+                    Or outParents(lastFolderID) <> lastParentID Then
+                        If heads(lastFolderID) < lastHeadByte Then
+                            cDirs.Remove lastFolderID
+                            outParents.Remove lastFolderID
+                            heads.Remove lastFolderID
+                            cDirs.Add lastFolderName, lastFolderID
+                        End If
+                    End If
+                End If
+                outParents.Add lastParentID, lastFolderID
+                heads.Add lastHeadByte, lastFolderID
+                On Error GoTo 0
+                lastFolderID = vbNullString
+            End If
+            '
+            If b(i + sig8Offset) <> sig8 Then GoTo NextSig
+            has5HeadBytes = True
+            If b(i + headBytes5Offset) = headBytes5 Then
+                j = i + headBytes5Offset
+            ElseIf b(i + headBytes6Offset) = headBytes6 Then
+                j = i + headBytes6Offset
+                has5HeadBytes = False 'Has 6 bytes header
+            ElseIf b(i + headBytes5Offset) <= maxSigByte Then
+                j = i + headBytes5Offset
+            Else
+                GoTo NextSig
+            End If
+            headByte = b(j)
+            '
+            bytes = sig88ToDataOffset
+            For k = 1 To 4
+                If k = 1 And headByte <= maxSigByte Then
+                    idSize(k) = idSize(k) = b(j + 2) 'Ignore first header byte
+                Else
+                    idSize(k) = b(j + k)
+                End If
+                If idSize(k) < 37 Or idSize(k) Mod 2 = 0 Then GoTo NextSig
+                idSize(k) = (idSize(k) - 13) / 2
+                bytes = bytes + idSize(k)
+            Next k
+            If has5HeadBytes Then
+                nameSize = b(j + 5)
+                If nameSize < 15 Or nameSize Mod 2 = 0 Then GoTo NextSig
+                nameSize = (nameSize - 13) / 2
+            Else
+                nameSize = (b(j + 5) - 128) * 64 + (b(j + 6) - 13) / 2
+                If nameSize < 1 Or b(j + 6) Mod 2 = 0 Then GoTo NextSig
+            End If
+            bytes = bytes + nameSize
+            '
+            currDataEnd = i + bytes - 1
+            If currDataEnd > chunkSize Then 'Next chunk
+                i = i - 1
+                Exit Do
+            End If
+            j = i + sig88ToDataOffset
+            folderID = StrConv(MidB$(s, j, idSize(1)), vbUnicode)
+            j = j + idSize(1)
+            parentID = StrConv(MidB$(s, j, idSize(2)), vbUnicode)
+            '
+            If folderID Like idPattern And parentID Like idPattern Then
+                j = j + idSize(2) + idSize(3) + idSize(4)
+                folderName = MidB$(s, j, nameSize)
+                '
+                Dim isASCII As Boolean: isASCII = True
+                For j = j To j + nameSize - 1
+                    If b(j) And &H80& Then
+                        isASCII = False
+                        Exit For
+                    End If
+                Next j
+                If isASCII Then
+                    folderName = StrConv(folderName, vbUnicode)
+                Else
+                    folderName = ConvertText(folderName, codeUTF16LE, codeUTF8)
+                End If
+                '
+                lastFolderID = folderID
+                lastParentID = parentID
+                lastFolderName = folderName
+                lastHeadByte = headByte
+                lastDataEnd = currDataEnd
+            End If
+NextSig:
+            i = InStrB(i + 1, s, sig88)
+        Loop
+        If i = 0 Then
+            lastRecord = lastRecord + chunkSize + headBytes6Offset
+        Else
+            lastRecord = lastRecord + i + headBytes6Offset
+        End If
+    Loop Until lastRecord > size
+    Set GetODDirsFromDB = cDirs
+CloseFile:
+    Close #fileNumber
 End Function
 
 '*******************************************************************************
