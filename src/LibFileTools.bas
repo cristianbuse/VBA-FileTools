@@ -2263,7 +2263,9 @@ End Sub
 '*******************************************************************************
 Private Function GetODDirs(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO _
                          , Optional ByRef outParents As Collection) As Collection
-    Set GetODDirs = GetODDirsFromDat(aInfo.datPath, outParents)
+    If aInfo.hasDatFile Then
+        Set GetODDirs = GetODDirsFromDat(aInfo.datPath, outParents)
+    End If
     If GetODDirs Is Nothing Then
         Set GetODDirs = GetODDirsFromDB(aInfo.dbPath, outParents)
     End If
@@ -2274,7 +2276,6 @@ End Function
 '*******************************************************************************
 Private Function GetODDirsFromDat(ByRef filePath As String _
                                 , ByRef outParents As Collection) As Collection
-    If Not IsFile(filePath) Then Exit Function
     Dim fileNumber As Long: fileNumber = FreeFile()
     '
     Open filePath For Binary Access Read As #fileNumber

@@ -2,8 +2,7 @@
 
 FileTools is a small VBA library that is useful for interacting with the file system.
 
-
-See relevant [SO Answer](https://stackoverflow.com/a/73577057/8488913) written by [@guwidoe](https://github.com/guwidoe) / [SO](https://stackoverflow.com/users/12287457/gwd). See his contributions in [#1](https://github.com/cristianbuse/VBA-FileTools/issues/1) and [#2](https://github.com/cristianbuse/VBA-FileTools/issues/2). Many thanks to him!
+Supports **OneDrive/SharePoint/UNC** path conversion to **local** drive path (```GetLocalPath```) and viceversa (```GetRemotePath```) written in collaboration with Guido ([@guwidoe](https://github.com/guwidoe) / [GWD](https://stackoverflow.com/users/12287457/gwd)). See relevant [SO Answer](https://stackoverflow.com/a/73577057/8488913) written by Guido. Many thanks to him!
 
 ## Installation
 
