@@ -88,7 +88,7 @@ Option Private Module
         Private Declare PtrSafe Function LookupAccountSid Lib "advapi32.dll" Alias "LookupAccountSidA" (ByVal lpSystemName As String, ByVal Sid As LongPtr, ByVal Name As String, cbName As Long, ByVal ReferencedDomainName As String, cbReferencedDomainName As Long, peUse As LongPtr) As Long
         Private Declare PtrSafe Function MultiByteToWideChar Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long) As Long
         Private Declare PtrSafe Function WideCharToMultiByte Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As LongPtr, ByVal cchWideChar As Long, ByVal lpMultiByteStr As LongPtr, ByVal cbMultiByte As Long, ByVal lpDefaultChar As LongPtr, ByVal lpUsedDefaultChar As LongPtr) As Long
-        Private Declare PtrSafe Function SHGetKnownFolderPath Lib "Shell32" (ByRef rfID As GUID, ByVal dwFlags As Long, ByVal hToken As Long, ByRef pszPath As LongPtr) As Long
+        Private Declare PtrSafe Function SHGetKnownFolderPath Lib "shell32" (ByRef rfID As GUID, ByVal dwFlags As Long, ByVal hToken As Long, ByRef pszPath As LongPtr) As Long
         Private Declare PtrSafe Function CLSIDFromString Lib "ole32" (ByVal lpszGuid As LongPtr, ByRef pGuid As GUID) As Long
         Private Declare PtrSafe Function lstrlenW Lib "kernel32" (ByVal lpString As LongPtr) As Long
         Private Declare PtrSafe Sub CoTaskMemFree Lib "ole32" (ByVal hMem As LongPtr)
@@ -102,7 +102,7 @@ Option Private Module
         Private Declare Function LookupAccountSid Lib "advapi32.dll" Alias "LookupAccountSidA" (ByVal lpSystemName As String, ByVal Sid As Long, ByVal Name As String, cbName As Long, ByVal ReferencedDomainName As String, cbReferencedDomainName As Long, peUse As Long) As Long
         Private Declare Function MultiByteToWideChar Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpMultiByteStr As Long, ByVal cchMultiByte As Long, ByVal lpWideCharStr As Long, ByVal cchWideChar As Long) As Long
         Private Declare Function WideCharToMultiByte Lib "kernel32" (ByVal codePage As Long, ByVal dwFlags As Long, ByVal lpWideCharStr As Long, ByVal cchWideChar As Long, ByVal lpMultiByteStr As Long, ByVal cchMultiByte As Long, ByVal lpDefaultChar As Long, ByVal lpUsedDefaultChar As Long) As Long
-        Private Declare Function SHGetKnownFolderPath Lib "shell32" (rfid As Any, ByVal dwFlags As Long, ByVal hToken As Long, ppszPath As Long) As Long
+        Private Declare Function SHGetKnownFolderPath Lib "shell32" (rfID As Any, ByVal dwFlags As Long, ByVal hToken As Long, ppszPath As Long) As Long
         Private Declare Function CLSIDFromString Lib "ole32" (ByVal lpszGuid As Long, pGuid As Any) As Long
         Private Declare Function lstrlenW Lib "kernel32" (ByVal lpString As Long) As Long
         Private Declare Sub CoTaskMemFree Lib "ole32" (ByVal pv As Long)
@@ -1978,7 +1978,7 @@ Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
                 .accountIndex = CLng(Right$(.accountName, 1))
             End If
             iniName = Dir(BuildPath(.folderPath, mask & ".ini"))
-            If LenB(iniName) > 0 Then
+            If LenB(iniName) > 0 And iniName Like mask & ".ini" Then
                 .cID = Left$(iniName, Len(iniName) - 4)
                 .datPath = .folderPath & ps & .cID & ".dat"
                 .dbPath = .folderPath & ps & "SyncEngineDatabase.db"
