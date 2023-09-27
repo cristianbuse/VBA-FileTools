@@ -2489,7 +2489,7 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
             bytes = sig88ToDataOffset
             For k = 1 To 4
                 If k = 1 And headByte <= maxSigByte Then
-                    idSize(k) = idSize(k) = b(j + 2) 'Ignore first header byte
+                    idSize(k) = b(j + 2) 'Ignore first header byte
                 Else
                     idSize(k) = b(j + k)
                 End If
