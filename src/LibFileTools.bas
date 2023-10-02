@@ -376,6 +376,7 @@ Private Type ONEDRIVE_ACCOUNT_INFO
     datPath As String
     dbPath As String
     folderPath As String
+    globalPath As String
     groupPath As String
     iniDateTime As Date
     iniPath As String
@@ -1804,6 +1805,7 @@ Private Sub ReadODProviders()
                 collFiles.Add .datPath
                 collFiles.Add .dbPath
                 collFiles.Add .clientPath
+                collFiles.Add .globalPath
                 If .isPersonal Then
                     collFiles.Add .groupPath
                 Else
@@ -1950,13 +1952,10 @@ End Sub
 'Utility for reading folder information for all the OneDrive accounts
 '*******************************************************************************
 Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
-    Const businessMask As String = "????????-????-????-????-????????????"
-    Const personalMask As String = "????????????????"
     Const ps As String = PATH_SEPARATOR
     Dim folderPath As Variant
     Dim i As Long
-    Dim mask As String
-    Dim iniName As String
+    Dim hasIniFile As Boolean
     Dim collFolders As Collection: Set collFolders = GetODAccountDirs()
     '
     accountsInfo.pCount = 0
@@ -1971,19 +1970,21 @@ Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
             .folderPath = folderPath
             .accountName = Mid$(folderPath, InStrRev(folderPath, ps) + 1)
             .isPersonal = (.accountName = "Personal")
-            If .isPersonal Then
-                mask = personalMask
-            Else
-                mask = businessMask
+            If Not .isPersonal Then
                 .accountIndex = CLng(Right$(.accountName, 1))
             End If
-            iniName = Dir(BuildPath(.folderPath, mask & ".ini"))
-            If LenB(iniName) > 0 And iniName Like mask & ".ini" Then
-                .cID = Left$(iniName, Len(iniName) - 4)
+            .globalPath = .folderPath & ps & "global.ini"
+            .cID = GetTagValue(.globalPath, "cid = ")
+            .iniPath = .folderPath & ps & .cID & ".ini"
+            #If Mac Then 'Avoid Mac File Access Request
+                hasIniFile = (Dir(.iniPath & "*") = .cID & ".ini")
+            #Else
+                hasIniFile = IsFile(.iniPath)
+            #End If
+            If hasIniFile Then
                 .datPath = .folderPath & ps & .cID & ".dat"
                 .dbPath = .folderPath & ps & "SyncEngineDatabase.db"
                 .groupPath = .folderPath & ps & "GroupFolders.ini"
-                .iniPath = .folderPath & ps & iniName
                 .clientPath = .folderPath & ps & "ClientPolicy.ini"
                 #If Mac Then 'Avoid Mac File Access Request
                     .hasDatFile = (Dir(.datPath & "*") = .cID & ".dat")
@@ -2205,6 +2206,7 @@ Private Function GetTagValue(ByRef filePath As String _
     #End If
     On Error GoTo 0
     '
+    If Len(fText) = 0 Then Exit Function
     i = InStr(1, fText, vTag) + Len(vTag)
     GetTagValue = Mid$(fText, i, InStr(i, fText, vbNewLine) - i)
 End Function
