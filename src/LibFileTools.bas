@@ -50,7 +50,8 @@ Attribute VB_Name = "LibFileTools"
 ''    - GetFileOwner        (Windows only)
 ''    - GetFiles
 ''    - GetFolders
-''    - GetKnownFolderWin   (Windows only)
+''    - GetKnownFolderCLSID (Windows only)
+''    - GetKnownFolderPath  (Windows only)
 ''    - GetLocalPath
 ''    - GetRelativePath
 ''    - GetRemotePath
@@ -186,155 +187,152 @@ End Enum
     Public Const DOMAIN_User    As String = "user"
     Public Const DOMAIN_Classic As String = "classic"
 #Else
-    'List of standard KnownFolderIDs, declarations for VBA
-    'Source: KnownFolders.h (Windows 11 SDK 10.0.22621.0) (sorted alphabetically)
-    'Note: Most of the FOLDERIDs that are available on a specific device seem to
-    '      be registered in the windows registry under
-    '      HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions
-    '      However, it seems that sometimes the SHGetKnownFolderPath function can
-    '      process a FOLDERID even if not present in said registry location.
-    Public Const FOLDERID_AccountPictures        As String = "{008ca0b1-55b4-4c56-b8a8-4de4b299d3be}"
-    Public Const FOLDERID_AddNewPrograms         As String = "{de61d971-5ebc-4f02-a3a9-6c82895e5c04}"
-    Public Const FOLDERID_AdminTools             As String = "{724EF170-A42D-4FEF-9F26-B60E846FBA4F}"
-    Public Const FOLDERID_AllAppMods             As String = "{7ad67899-66af-43ba-9156-6aad42e6c596}"
-    Public Const FOLDERID_AppCaptures            As String = "{EDC0FE71-98D8-4F4A-B920-C8DC133CB165}"
-    Public Const FOLDERID_AppDataDesktop         As String = "{B2C5E279-7ADD-439F-B28C-C41FE1BBF672}"
-    Public Const FOLDERID_AppDataDocuments       As String = "{7BE16610-1F7F-44AC-BFF0-83E15F2FFCA1}"
-    Public Const FOLDERID_AppDataFavorites       As String = "{7CFBEFBC-DE1F-45AA-B843-A542AC536CC9}"
-    Public Const FOLDERID_AppDataProgramData     As String = "{559D40A3-A036-40FA-AF61-84CB430A4D34}"
-    Public Const FOLDERID_ApplicationShortcuts   As String = "{A3918781-E5F2-4890-B3D9-A7E54332328C}"
-    Public Const FOLDERID_AppsFolder             As String = "{1e87508d-89c2-42f0-8a7e-645a0f50ca58}"
-    Public Const FOLDERID_AppUpdates             As String = "{a305ce99-f527-492b-8b1a-7e76fa98d6e4}"
-    Public Const FOLDERID_CameraRoll             As String = "{AB5FB87B-7CE2-4F83-915D-550846C9537B}"
-    Public Const FOLDERID_CameraRollLibrary      As String = "{2B20DF75-1EDA-4039-8097-38798227D5B7}"
-    Public Const FOLDERID_CDBurning              As String = "{9E52AB10-F80D-49DF-ACB8-4330F5687855}"
-    Public Const FOLDERID_ChangeRemovePrograms   As String = "{df7266ac-9274-4867-8d55-3bd661de872d}"
-    Public Const FOLDERID_CommonAdminTools       As String = "{D0384E7D-BAC3-4797-8F14-CBA229B392B5}"
-    Public Const FOLDERID_CommonOEMLinks         As String = "{C1BAE2D0-10DF-4334-BEDD-7AA20B227A9D}"
-    Public Const FOLDERID_CommonPrograms         As String = "{0139D44E-6AFE-49F2-8690-3DAFCAE6FFB8}"
-    Public Const FOLDERID_CommonStartMenu        As String = "{A4115719-D62E-491D-AA7C-E74B8BE3B067}"
-    Public Const FOLDERID_CommonStartMenuPlaces  As String = "{A440879F-87A0-4F7D-B700-0207B966194A}"
-    Public Const FOLDERID_CommonStartup          As String = "{82A5EA35-D9CD-47C5-9629-E15D2F714E6E}"
-    Public Const FOLDERID_CommonTemplates        As String = "{B94237E7-57AC-4347-9151-B08C6C32D1F7}"
-    Public Const FOLDERID_ComputerFolder         As String = "{0AC0837C-BBF8-452A-850D-79D08E667CA7}"
-    Public Const FOLDERID_ConflictFolder         As String = "{4bfefb45-347d-4006-a5be-ac0cb0567192}"
-    Public Const FOLDERID_ConnectionsFolder      As String = "{6F0CD92B-2E97-45D1-88FF-B0D186B8DEDD}"
-    Public Const FOLDERID_Contacts               As String = "{56784854-C6CB-462b-8169-88E350ACB882}"
-    Public Const FOLDERID_ControlPanelFolder     As String = "{82A74AEB-AEB4-465C-A014-D097EE346D63}"
-    Public Const FOLDERID_Cookies                As String = "{2B0F765D-C0E9-4171-908E-08A611B84FF6}"
-    Public Const FOLDERID_CurrentAppMods         As String = "{3db40b20-2a30-4dbe-917e-771dd21dd099}"
-    Public Const FOLDERID_Desktop                As String = "{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}"
-    Public Const FOLDERID_DevelopmentFiles       As String = "{DBE8E08E-3053-4BBC-B183-2A7B2B191E59}"
-    Public Const FOLDERID_Device                 As String = "{1C2AC1DC-4358-4B6C-9733-AF21156576F0}"
-    Public Const FOLDERID_DeviceMetadataStore    As String = "{5CE4A5E9-E4EB-479D-B89F-130C02886155}"
-    Public Const FOLDERID_Documents              As String = "{FDD39AD0-238F-46AF-ADB4-6C85480369C7}"
-    Public Const FOLDERID_DocumentsLibrary       As String = "{7b0db17d-9cd2-4a93-9733-46cc89022e7c}"
-    Public Const FOLDERID_Downloads              As String = "{374DE290-123F-4565-9164-39C4925E467B}"
-    Public Const FOLDERID_Favorites              As String = "{1777F761-68AD-4D8A-87BD-30B759FA33DD}"
-    Public Const FOLDERID_Fonts                  As String = "{FD228CB7-AE11-4AE3-864C-16F3910AB8FE}"
-    Public Const FOLDERID_Games                  As String = "{CAC52C1A-B53D-4edc-92D7-6B2E8AC19434}"
-    Public Const FOLDERID_GameTasks              As String = "{054FAE61-4DD8-4787-80B6-090220C4B700}"
-    Public Const FOLDERID_History                As String = "{D9DC8A3B-B784-432E-A781-5A1130A75963}"
-    Public Const FOLDERID_HomeGroup              As String = "{52528A6B-B9E3-4add-B60D-588C2DBA842D}"
-    Public Const FOLDERID_HomeGroupCurrentUser   As String = "{9B74B6A3-0DFD-4f11-9E78-5F7800F2E772}"
-    Public Const FOLDERID_ImplicitAppShortcuts   As String = "{bcb5256f-79f6-4cee-b725-dc34e402fd46}"
-    Public Const FOLDERID_InternetCache          As String = "{352481E8-33BE-4251-BA85-6007CAEDCF9D}"
-    Public Const FOLDERID_InternetFolder         As String = "{4D9F7874-4E0C-4904-967B-40B0D20C3E4B}"
-    Public Const FOLDERID_Libraries              As String = "{1B3EA5DC-B587-4786-B4EF-BD1DC332AEAE}"
-    Public Const FOLDERID_Links                  As String = "{bfb9d5e0-c6a9-404c-b2b2-ae6db6af4968}"
-    Public Const FOLDERID_LocalAppData           As String = "{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}"
-    Public Const FOLDERID_LocalAppDataLow        As String = "{A520A1A4-1780-4FF6-BD18-167343C5AF16}"
-    Public Const FOLDERID_LocalDocuments         As String = "{f42ee2d3-909f-4907-8871-4c22fc0bf756}"
-    Public Const FOLDERID_LocalDownloads         As String = "{7d83ee9b-2244-4e70-b1f5-5393042af1e4}"
-    Public Const FOLDERID_LocalizedResourcesDir  As String = "{2A00375E-224C-49DE-B8D1-440DF7EF3DDC}"
-    Public Const FOLDERID_LocalMusic             As String = "{a0c69a99-21c8-4671-8703-7934162fcf1d}"
-    Public Const FOLDERID_LocalPictures          As String = "{0ddd015d-b06c-45d5-8c4c-f59713854639}"
-    Public Const FOLDERID_LocalStorage           As String = "{B3EB08D3-A1F3-496B-865A-42B536CDA0EC}"
-    Public Const FOLDERID_LocalVideos            As String = "{35286a68-3c57-41a1-bbb1-0eae73d76c95}"
-    Public Const FOLDERID_Music                  As String = "{4BD8D571-6D19-48D3-BE97-422220080E43}"
-    Public Const FOLDERID_MusicLibrary           As String = "{2112AB0A-C86A-4ffe-A368-0DE96E47012E}"
-    Public Const FOLDERID_NetHood                As String = "{C5ABBF53-E17F-4121-8900-86626FC2C973}"
-    Public Const FOLDERID_NetworkFolder          As String = "{D20BEEC4-5CA8-4905-AE3B-BF251EA09B53}"
-    Public Const FOLDERID_Objects3D              As String = "{31C0DD25-9439-4F12-BF41-7FF4EDA38722}"
-    Public Const FOLDERID_OneDrive               As String = "{A52BBA46-E9E1-435f-B3D9-28DAA648C0F6}"
-    Public Const FOLDERID_OriginalImages         As String = "{2C36C0AA-5812-4b87-BFD0-4CD0DFB19B39}"
-    Public Const FOLDERID_PhotoAlbums            As String = "{69D2CF90-FC33-4FB7-9A0C-EBB0F0FCB43C}"
-    Public Const FOLDERID_Pictures               As String = "{33E28130-4E1E-4676-835A-98395C3BC3BB}"
-    Public Const FOLDERID_PicturesLibrary        As String = "{A990AE9F-A03B-4e80-94BC-9912D7504104}"
-    Public Const FOLDERID_Playlists              As String = "{DE92C1C7-837F-4F69-A3BB-86E631204A23}"
-    Public Const FOLDERID_PrintersFolder         As String = "{76FC4E2D-D6AD-4519-A663-37BD56068185}"
-    Public Const FOLDERID_PrintHood              As String = "{9274BD8D-CFD1-41C3-B35E-B13F55A758F4}"
-    Public Const FOLDERID_Profile                As String = "{5E6C858F-0E22-4760-9AFE-EA3317B67173}"
-    Public Const FOLDERID_ProgramData            As String = "{62AB5D82-FDC1-4DC3-A9DD-070D1D495D97}"
-    Public Const FOLDERID_ProgramFiles           As String = "{905e63b6-c1bf-494e-b29c-65b732d3d21a}"
-    Public Const FOLDERID_ProgramFilesCommon     As String = "{F7F1ED05-9F6D-47A2-AAAE-29D317C6F066}"
-    Public Const FOLDERID_ProgramFilesCommonX64  As String = "{6365D5A7-0F0D-45e5-87F6-0DA56B6A4F7D}"
-    Public Const FOLDERID_ProgramFilesCommonX86  As String = "{DE974D24-D9C6-4D3E-BF91-F4455120B917}"
-    Public Const FOLDERID_ProgramFilesX64        As String = "{6D809377-6AF0-444b-8957-A3773F02200E}"
-    Public Const FOLDERID_ProgramFilesX86        As String = "{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}"
-    Public Const FOLDERID_Programs               As String = "{A77F5D77-2E2B-44C3-A6A2-ABA601054A51}"
-    Public Const FOLDERID_Public                 As String = "{DFDF76A2-C82A-4D63-906A-5644AC457385}"
-    Public Const FOLDERID_PublicDesktop          As String = "{C4AA340D-F20F-4863-AFEF-F87EF2E6BA25}"
-    Public Const FOLDERID_PublicDocuments        As String = "{ED4824AF-DCE4-45A8-81E2-FC7965083634}"
-    Public Const FOLDERID_PublicDownloads        As String = "{3D644C9B-1FB8-4f30-9B45-F670235F79C0}"
-    Public Const FOLDERID_PublicGameTasks        As String = "{DEBF2536-E1A8-4c59-B6A2-414586476AEA}"
-    Public Const FOLDERID_PublicLibraries        As String = "{48daf80b-e6cf-4f4e-b800-0e69d84ee384}"
-    Public Const FOLDERID_PublicMusic            As String = "{3214FAB5-9757-4298-BB61-92A9DEAA44FF}"
-    Public Const FOLDERID_PublicPictures         As String = "{B6EBFB86-6907-413C-9AF7-4FC2ABF07CC5}"
-    Public Const FOLDERID_PublicRingtones        As String = "{E555AB60-153B-4D17-9F04-A5FE99FC15EC}"
-    Public Const FOLDERID_PublicUserTiles        As String = "{0482af6c-08f1-4c34-8c90-e17ec98b1e17}"
-    Public Const FOLDERID_PublicVideos           As String = "{2400183A-6185-49FB-A2D8-4A392A602BA3}"
-    Public Const FOLDERID_QuickLaunch            As String = "{52a4f021-7b75-48a9-9f6b-4b87a210bc8f}"
-    Public Const FOLDERID_Recent                 As String = "{AE50C081-EBD2-438A-8655-8A092E34987A}"
-    Public Const FOLDERID_RecordedCalls          As String = "{2f8b40c2-83ed-48ee-b383-a1f157ec6f9a}"
-    Public Const FOLDERID_RecordedTVLibrary      As String = "{1A6FDBA2-F42D-4358-A798-B74D745926C5}"
-    Public Const FOLDERID_RecycleBinFolder       As String = "{B7534046-3ECB-4C18-BE4E-64CD4CB7D6AC}"
-    Public Const FOLDERID_ResourceDir            As String = "{8AD10C31-2ADB-4296-A8F7-E4701232C972}"
-    Public Const FOLDERID_RetailDemo             As String = "{12D4C69E-24AD-4923-BE19-31321C43A767}"
-    Public Const FOLDERID_Ringtones              As String = "{C870044B-F49E-4126-A9C3-B52A1FF411E8}"
-    Public Const FOLDERID_RoamedTileImages       As String = "{AAA8D5A5-F1D6-4259-BAA8-78E7EF60835E}"
-    Public Const FOLDERID_RoamingAppData         As String = "{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}"
-    Public Const FOLDERID_RoamingTiles           As String = "{00BCFC5A-ED94-4e48-96A1-3F6217F21990}"
-    Public Const FOLDERID_SampleMusic            As String = "{B250C668-F57D-4EE1-A63C-290EE7D1AA1F}"
-    Public Const FOLDERID_SamplePictures         As String = "{C4900540-2379-4C75-844B-64E6FAF8716B}"
-    Public Const FOLDERID_SamplePlaylists        As String = "{15CA69B3-30EE-49C1-ACE1-6B5EC372AFB5}"
-    Public Const FOLDERID_SampleVideos           As String = "{859EAD94-2E85-48AD-A71A-0969CB56A6CD}"
-    Public Const FOLDERID_SavedGames             As String = "{4C5C32FF-BB9D-43b0-B5B4-2D72E54EAAA4}"
-    Public Const FOLDERID_SavedPictures          As String = "{3B193882-D3AD-4eab-965A-69829D1FB59F}"
-    Public Const FOLDERID_SavedPicturesLibrary   As String = "{E25B5812-BE88-4bd9-94B0-29233477B6C3}"
-    Public Const FOLDERID_SavedSearches          As String = "{7d1d3a04-debb-4115-95cf-2f29da2920da}"
-    Public Const FOLDERID_Screenshots            As String = "{b7bede81-df94-4682-a7d8-57a52620b86f}"
-    Public Const FOLDERID_SEARCH_CSC             As String = "{ee32e446-31ca-4aba-814f-a5ebd2fd6d5e}"
-    Public Const FOLDERID_SEARCH_MAPI            As String = "{98ec0e18-2098-4d44-8644-66979315a281}"
-    Public Const FOLDERID_SearchHistory          As String = "{0D4C3DB6-03A3-462F-A0E6-08924C41B5D4}"
-    Public Const FOLDERID_SearchHome             As String = "{190337d1-b8ca-4121-a639-6d472d16972a}"
-    Public Const FOLDERID_SearchTemplates        As String = "{7E636BFE-DFA9-4D5E-B456-D7B39851D8A9}"
-    Public Const FOLDERID_SendTo                 As String = "{8983036C-27C0-404B-8F08-102D10DCFD74}"
-    Public Const FOLDERID_SidebarDefaultParts    As String = "{7B396E54-9EC5-4300-BE0A-2482EBAE1A26}"
-    Public Const FOLDERID_SidebarParts           As String = "{A75D362E-50FC-4fb7-AC2C-A8BEAA314493}"
-    Public Const FOLDERID_SkyDrive               As String = "{A52BBA46-E9E1-435f-B3D9-28DAA648C0F6}"
-    Public Const FOLDERID_SkyDriveCameraRoll     As String = "{767E6811-49CB-4273-87C2-20F355E1085B}"
-    Public Const FOLDERID_SkyDriveDocuments      As String = "{24D89E24-2F19-4534-9DDE-6A6671FBB8FE}"
-    Public Const FOLDERID_SkyDriveMusic          As String = "{C3F2459E-80D6-45DC-BFEF-1F769F2BE730}"
-    Public Const FOLDERID_SkyDrivePictures       As String = "{339719B5-8C47-4894-94C2-D8F77ADD44A6}"
-    Public Const FOLDERID_StartMenu              As String = "{625B53C3-AB48-4EC1-BA1F-A1EF4146FC19}"
-    Public Const FOLDERID_StartMenuAllPrograms   As String = "{F26305EF-6948-40B9-B255-81453D09C785}"
-    Public Const FOLDERID_Startup                As String = "{B97D20BB-F46A-4C97-BA10-5E3608430854}"
-    Public Const FOLDERID_SyncManagerFolder      As String = "{43668BF8-C14E-49B2-97C9-747784D784B7}"
-    Public Const FOLDERID_SyncResultsFolder      As String = "{289a9a43-be44-4057-a41b-587a76d7e7f9}"
-    Public Const FOLDERID_SyncSetupFolder        As String = "{0F214138-B1D3-4a90-BBA9-27CBC0C5389A}"
-    Public Const FOLDERID_System                 As String = "{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}"
-    Public Const FOLDERID_SystemX86              As String = "{D65231B0-B2F1-4857-A4CE-A8E7C6EA7D27}"
-    Public Const FOLDERID_Templates              As String = "{A63293E8-664E-48DB-A079-DF759E0509F7}"
-    Public Const FOLDERID_UserPinned             As String = "{9e3995ab-1f9c-4f13-b827-48b24b6c7174}"
-    Public Const FOLDERID_UserProfiles           As String = "{0762D272-C50A-4BB0-A382-697DCD729B80}"
-    Public Const FOLDERID_UserProgramFiles       As String = "{5cd7aee2-2219-4a67-b85d-6c9ce15660cb}"
-    Public Const FOLDERID_UserProgramFilesCommon As String = "{bcbd3057-ca5c-4622-b42d-bc56db0ae516}"
-    Public Const FOLDERID_UsersFiles             As String = "{f3ce0f7c-4901-4acc-8648-d5d44b04ef8f}"
-    Public Const FOLDERID_UsersLibraries         As String = "{A302545D-DEFF-464b-ABE8-61C8648D939B}"
-    Public Const FOLDERID_Videos                 As String = "{18989B1D-99B5-455B-841C-AB7C74E4DDFC}"
-    Public Const FOLDERID_VideosLibrary          As String = "{491E922F-5643-4af4-A7EB-4E7A138D8174}"
-    Public Const FOLDERID_Windows                As String = "{F38BF404-1D43-42F2-9305-67DE0B28FC23}"
+    Public Enum KnownFolderID 'See 'GetKnownFolderCLSID' method
+        kfID_AccountPictures = 0
+        [_minKfID] = kfID_AccountPictures
+        kfID_AddNewPrograms
+        kfID_AdminTools
+        kfID_AllAppMods
+        kfID_AppCaptures
+        kfID_AppDataDesktop
+        kfID_AppDataDocuments
+        kfID_AppDataFavorites
+        kfID_AppDataProgramData
+        kfID_ApplicationShortcuts
+        kfID_AppsFolder
+        kfID_AppUpdates
+        kfID_CameraRoll
+        kfID_CameraRollLibrary
+        kfID_CDBurning
+        kfID_ChangeRemovePrograms
+        kfID_CommonAdminTools
+        kfID_CommonOEMLinks
+        kfID_CommonPrograms
+        kfID_CommonStartMenu
+        kfID_CommonStartMenuPlaces
+        kfID_CommonStartup
+        kfID_CommonTemplates
+        kfID_ComputerFolder
+        kfID_ConflictFolder
+        kfID_ConnectionsFolder
+        kfID_Contacts
+        kfID_ControlPanelFolder
+        kfID_Cookies
+        kfID_CurrentAppMods
+        kfID_Desktop
+        kfID_DevelopmentFiles
+        kfID_Device
+        kfID_DeviceMetadataStore
+        kfID_Documents
+        kfID_DocumentsLibrary
+        kfID_Downloads
+        kfID_Favorites
+        kfID_Fonts
+        kfID_Games
+        kfID_GameTasks
+        kfID_History
+        kfID_HomeGroup
+        kfID_HomeGroupCurrentUser
+        kfID_ImplicitAppShortcuts
+        kfID_InternetCache
+        kfID_InternetFolder
+        kfID_Libraries
+        kfID_Links
+        kfID_LocalAppData
+        kfID_LocalAppDataLow
+        kfID_LocalDocuments
+        kfID_LocalDownloads
+        kfID_LocalizedResourcesDir
+        kfID_LocalMusic
+        kfID_LocalPictures
+        kfID_LocalStorage
+        kfID_LocalVideos
+        kfID_Music
+        kfID_MusicLibrary
+        kfID_NetHood
+        kfID_NetworkFolder
+        kfID_Objects3D
+        kfID_OneDrive
+        kfID_OriginalImages
+        kfID_PhotoAlbums
+        kfID_Pictures
+        kfID_PicturesLibrary
+        kfID_Playlists
+        kfID_PrintersFolder
+        kfID_PrintHood
+        kfID_Profile
+        kfID_ProgramData
+        kfID_ProgramFiles
+        kfID_ProgramFilesCommon
+        kfID_ProgramFilesCommonX64
+        kfID_ProgramFilesCommonX86
+        kfID_ProgramFilesX64
+        kfID_ProgramFilesX86
+        kfID_Programs
+        kfID_Public
+        kfID_PublicDesktop
+        kfID_PublicDocuments
+        kfID_PublicDownloads
+        kfID_PublicGameTasks
+        kfID_PublicLibraries
+        kfID_PublicMusic
+        kfID_PublicPictures
+        kfID_PublicRingtones
+        kfID_PublicUserTiles
+        kfID_PublicVideos
+        kfID_QuickLaunch
+        kfID_Recent
+        kfID_RecordedCalls
+        kfID_RecordedTVLibrary
+        kfID_RecycleBinFolder
+        kfID_ResourceDir
+        kfID_RetailDemo
+        kfID_Ringtones
+        kfID_RoamedTileImages
+        kfID_RoamingAppData
+        kfID_RoamingTiles
+        kfID_SampleMusic
+        kfID_SamplePictures
+        kfID_SamplePlaylists
+        kfID_SampleVideos
+        kfID_SavedGames
+        kfID_SavedPictures
+        kfID_SavedPicturesLibrary
+        kfID_SavedSearches
+        kfID_Screenshots
+        kfID_SEARCH_CSC
+        kfID_SEARCH_MAPI
+        kfID_SearchHistory
+        kfID_SearchHome
+        kfID_SearchTemplates
+        kfID_SendTo
+        kfID_SidebarDefaultParts
+        kfID_SidebarParts
+        kfID_SkyDrive
+        kfID_SkyDriveCameraRoll
+        kfID_SkyDriveDocuments
+        kfID_SkyDriveMusic
+        kfID_SkyDrivePictures
+        kfID_StartMenu
+        kfID_StartMenuAllPrograms
+        kfID_Startup
+        kfID_SyncManagerFolder
+        kfID_SyncResultsFolder
+        kfID_SyncSetupFolder
+        kfID_System
+        kfID_SystemX86
+        kfID_Templates
+        kfID_UserPinned
+        kfID_UserProfiles
+        kfID_UserProgramFiles
+        kfID_UserProgramFilesCommon
+        kfID_UsersFiles
+        kfID_UsersLibraries
+        kfID_Videos
+        kfID_VideosLibrary
+        kfID_Windows
+        [_maxKfID] = kfID_Windows
+    End Enum
 #End If
 
 Private Type DRIVE_INFO
@@ -1216,30 +1214,196 @@ End Function
 #End If
 
 '*******************************************************************************
-'Returns path of a 'known folder' using the respective 'FOLDERID' on Windows
-'Use prefixed constants 'FOLDERID_' for the 'knownFolderID' argument
+'Returns the FOLDERID of a 'known folder' on Windows
+'Returns a null string if 'kfID' is not a valid enum value
+'Source: KnownFolders.h (Windows 11 SDK 10.0.22621.0) (sorted alphabetically)
+'Note: Most of the FOLDERIDs that are available on a specific device seem to
+'      be registered in the windows registry under
+'      HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions
+'      However, it seems that sometimes the SHGetKnownFolderPath function can
+'      process a FOLDERID even if not present in said registry location.
+'*******************************************************************************
+#If Windows Then
+Public Function GetKnownFolderCLSID(ByVal kfID As KnownFolderID) As String
+    Static cids([_minKfID] To [_maxKfID]) As String
+    '
+    If kfID < [_minKfID] Or kfID > [_maxKfID] Then Exit Function
+    If LenB(cids([_minKfID])) = 0 Then
+        cids(kfID_AccountPictures) = "{008ca0b1-55b4-4c56-b8a8-4de4b299d3be}"
+        cids(kfID_AddNewPrograms) = "{de61d971-5ebc-4f02-a3a9-6c82895e5c04}"
+        cids(kfID_AdminTools) = "{724EF170-A42D-4FEF-9F26-B60E846FBA4F}"
+        cids(kfID_AllAppMods) = "{7ad67899-66af-43ba-9156-6aad42e6c596}"
+        cids(kfID_AppCaptures) = "{EDC0FE71-98D8-4F4A-B920-C8DC133CB165}"
+        cids(kfID_AppDataDesktop) = "{B2C5E279-7ADD-439F-B28C-C41FE1BBF672}"
+        cids(kfID_AppDataDocuments) = "{7BE16610-1F7F-44AC-BFF0-83E15F2FFCA1}"
+        cids(kfID_AppDataFavorites) = "{7CFBEFBC-DE1F-45AA-B843-A542AC536CC9}"
+        cids(kfID_AppDataProgramData) = "{559D40A3-A036-40FA-AF61-84CB430A4D34}"
+        cids(kfID_ApplicationShortcuts) = "{A3918781-E5F2-4890-B3D9-A7E54332328C}"
+        cids(kfID_AppsFolder) = "{1e87508d-89c2-42f0-8a7e-645a0f50ca58}"
+        cids(kfID_AppUpdates) = "{a305ce99-f527-492b-8b1a-7e76fa98d6e4}"
+        cids(kfID_CameraRoll) = "{AB5FB87B-7CE2-4F83-915D-550846C9537B}"
+        cids(kfID_CameraRollLibrary) = "{2B20DF75-1EDA-4039-8097-38798227D5B7}"
+        cids(kfID_CDBurning) = "{9E52AB10-F80D-49DF-ACB8-4330F5687855}"
+        cids(kfID_ChangeRemovePrograms) = "{df7266ac-9274-4867-8d55-3bd661de872d}"
+        cids(kfID_CommonAdminTools) = "{D0384E7D-BAC3-4797-8F14-CBA229B392B5}"
+        cids(kfID_CommonOEMLinks) = "{C1BAE2D0-10DF-4334-BEDD-7AA20B227A9D}"
+        cids(kfID_CommonPrograms) = "{0139D44E-6AFE-49F2-8690-3DAFCAE6FFB8}"
+        cids(kfID_CommonStartMenu) = "{A4115719-D62E-491D-AA7C-E74B8BE3B067}"
+        cids(kfID_CommonStartMenuPlaces) = "{A440879F-87A0-4F7D-B700-0207B966194A}"
+        cids(kfID_CommonStartup) = "{82A5EA35-D9CD-47C5-9629-E15D2F714E6E}"
+        cids(kfID_CommonTemplates) = "{B94237E7-57AC-4347-9151-B08C6C32D1F7}"
+        cids(kfID_ComputerFolder) = "{0AC0837C-BBF8-452A-850D-79D08E667CA7}"
+        cids(kfID_ConflictFolder) = "{4bfefb45-347d-4006-a5be-ac0cb0567192}"
+        cids(kfID_ConnectionsFolder) = "{6F0CD92B-2E97-45D1-88FF-B0D186B8DEDD}"
+        cids(kfID_Contacts) = "{56784854-C6CB-462b-8169-88E350ACB882}"
+        cids(kfID_ControlPanelFolder) = "{82A74AEB-AEB4-465C-A014-D097EE346D63}"
+        cids(kfID_Cookies) = "{2B0F765D-C0E9-4171-908E-08A611B84FF6}"
+        cids(kfID_CurrentAppMods) = "{3db40b20-2a30-4dbe-917e-771dd21dd099}"
+        cids(kfID_Desktop) = "{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}"
+        cids(kfID_DevelopmentFiles) = "{DBE8E08E-3053-4BBC-B183-2A7B2B191E59}"
+        cids(kfID_Device) = "{1C2AC1DC-4358-4B6C-9733-AF21156576F0}"
+        cids(kfID_DeviceMetadataStore) = "{5CE4A5E9-E4EB-479D-B89F-130C02886155}"
+        cids(kfID_Documents) = "{FDD39AD0-238F-46AF-ADB4-6C85480369C7}"
+        cids(kfID_DocumentsLibrary) = "{7b0db17d-9cd2-4a93-9733-46cc89022e7c}"
+        cids(kfID_Downloads) = "{374DE290-123F-4565-9164-39C4925E467B}"
+        cids(kfID_Favorites) = "{1777F761-68AD-4D8A-87BD-30B759FA33DD}"
+        cids(kfID_Fonts) = "{FD228CB7-AE11-4AE3-864C-16F3910AB8FE}"
+        cids(kfID_Games) = "{CAC52C1A-B53D-4edc-92D7-6B2E8AC19434}"
+        cids(kfID_GameTasks) = "{054FAE61-4DD8-4787-80B6-090220C4B700}"
+        cids(kfID_History) = "{D9DC8A3B-B784-432E-A781-5A1130A75963}"
+        cids(kfID_HomeGroup) = "{52528A6B-B9E3-4add-B60D-588C2DBA842D}"
+        cids(kfID_HomeGroupCurrentUser) = "{9B74B6A3-0DFD-4f11-9E78-5F7800F2E772}"
+        cids(kfID_ImplicitAppShortcuts) = "{bcb5256f-79f6-4cee-b725-dc34e402fd46}"
+        cids(kfID_InternetCache) = "{352481E8-33BE-4251-BA85-6007CAEDCF9D}"
+        cids(kfID_InternetFolder) = "{4D9F7874-4E0C-4904-967B-40B0D20C3E4B}"
+        cids(kfID_Libraries) = "{1B3EA5DC-B587-4786-B4EF-BD1DC332AEAE}"
+        cids(kfID_Links) = "{bfb9d5e0-c6a9-404c-b2b2-ae6db6af4968}"
+        cids(kfID_LocalAppData) = "{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}"
+        cids(kfID_LocalAppDataLow) = "{A520A1A4-1780-4FF6-BD18-167343C5AF16}"
+        cids(kfID_LocalDocuments) = "{f42ee2d3-909f-4907-8871-4c22fc0bf756}"
+        cids(kfID_LocalDownloads) = "{7d83ee9b-2244-4e70-b1f5-5393042af1e4}"
+        cids(kfID_LocalizedResourcesDir) = "{2A00375E-224C-49DE-B8D1-440DF7EF3DDC}"
+        cids(kfID_LocalMusic) = "{a0c69a99-21c8-4671-8703-7934162fcf1d}"
+        cids(kfID_LocalPictures) = "{0ddd015d-b06c-45d5-8c4c-f59713854639}"
+        cids(kfID_LocalStorage) = "{B3EB08D3-A1F3-496B-865A-42B536CDA0EC}"
+        cids(kfID_LocalVideos) = "{35286a68-3c57-41a1-bbb1-0eae73d76c95}"
+        cids(kfID_Music) = "{4BD8D571-6D19-48D3-BE97-422220080E43}"
+        cids(kfID_MusicLibrary) = "{2112AB0A-C86A-4ffe-A368-0DE96E47012E}"
+        cids(kfID_NetHood) = "{C5ABBF53-E17F-4121-8900-86626FC2C973}"
+        cids(kfID_NetworkFolder) = "{D20BEEC4-5CA8-4905-AE3B-BF251EA09B53}"
+        cids(kfID_Objects3D) = "{31C0DD25-9439-4F12-BF41-7FF4EDA38722}"
+        cids(kfID_OneDrive) = "{A52BBA46-E9E1-435f-B3D9-28DAA648C0F6}"
+        cids(kfID_OriginalImages) = "{2C36C0AA-5812-4b87-BFD0-4CD0DFB19B39}"
+        cids(kfID_PhotoAlbums) = "{69D2CF90-FC33-4FB7-9A0C-EBB0F0FCB43C}"
+        cids(kfID_Pictures) = "{33E28130-4E1E-4676-835A-98395C3BC3BB}"
+        cids(kfID_PicturesLibrary) = "{A990AE9F-A03B-4e80-94BC-9912D7504104}"
+        cids(kfID_Playlists) = "{DE92C1C7-837F-4F69-A3BB-86E631204A23}"
+        cids(kfID_PrintersFolder) = "{76FC4E2D-D6AD-4519-A663-37BD56068185}"
+        cids(kfID_PrintHood) = "{9274BD8D-CFD1-41C3-B35E-B13F55A758F4}"
+        cids(kfID_Profile) = "{5E6C858F-0E22-4760-9AFE-EA3317B67173}"
+        cids(kfID_ProgramData) = "{62AB5D82-FDC1-4DC3-A9DD-070D1D495D97}"
+        cids(kfID_ProgramFiles) = "{905e63b6-c1bf-494e-b29c-65b732d3d21a}"
+        cids(kfID_ProgramFilesCommon) = "{F7F1ED05-9F6D-47A2-AAAE-29D317C6F066}"
+        cids(kfID_ProgramFilesCommonX64) = "{6365D5A7-0F0D-45e5-87F6-0DA56B6A4F7D}"
+        cids(kfID_ProgramFilesCommonX86) = "{DE974D24-D9C6-4D3E-BF91-F4455120B917}"
+        cids(kfID_ProgramFilesX64) = "{6D809377-6AF0-444b-8957-A3773F02200E}"
+        cids(kfID_ProgramFilesX86) = "{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}"
+        cids(kfID_Programs) = "{A77F5D77-2E2B-44C3-A6A2-ABA601054A51}"
+        cids(kfID_Public) = "{DFDF76A2-C82A-4D63-906A-5644AC457385}"
+        cids(kfID_PublicDesktop) = "{C4AA340D-F20F-4863-AFEF-F87EF2E6BA25}"
+        cids(kfID_PublicDocuments) = "{ED4824AF-DCE4-45A8-81E2-FC7965083634}"
+        cids(kfID_PublicDownloads) = "{3D644C9B-1FB8-4f30-9B45-F670235F79C0}"
+        cids(kfID_PublicGameTasks) = "{DEBF2536-E1A8-4c59-B6A2-414586476AEA}"
+        cids(kfID_PublicLibraries) = "{48daf80b-e6cf-4f4e-b800-0e69d84ee384}"
+        cids(kfID_PublicMusic) = "{3214FAB5-9757-4298-BB61-92A9DEAA44FF}"
+        cids(kfID_PublicPictures) = "{B6EBFB86-6907-413C-9AF7-4FC2ABF07CC5}"
+        cids(kfID_PublicRingtones) = "{E555AB60-153B-4D17-9F04-A5FE99FC15EC}"
+        cids(kfID_PublicUserTiles) = "{0482af6c-08f1-4c34-8c90-e17ec98b1e17}"
+        cids(kfID_PublicVideos) = "{2400183A-6185-49FB-A2D8-4A392A602BA3}"
+        cids(kfID_QuickLaunch) = "{52a4f021-7b75-48a9-9f6b-4b87a210bc8f}"
+        cids(kfID_Recent) = "{AE50C081-EBD2-438A-8655-8A092E34987A}"
+        cids(kfID_RecordedCalls) = "{2f8b40c2-83ed-48ee-b383-a1f157ec6f9a}"
+        cids(kfID_RecordedTVLibrary) = "{1A6FDBA2-F42D-4358-A798-B74D745926C5}"
+        cids(kfID_RecycleBinFolder) = "{B7534046-3ECB-4C18-BE4E-64CD4CB7D6AC}"
+        cids(kfID_ResourceDir) = "{8AD10C31-2ADB-4296-A8F7-E4701232C972}"
+        cids(kfID_RetailDemo) = "{12D4C69E-24AD-4923-BE19-31321C43A767}"
+        cids(kfID_Ringtones) = "{C870044B-F49E-4126-A9C3-B52A1FF411E8}"
+        cids(kfID_RoamedTileImages) = "{AAA8D5A5-F1D6-4259-BAA8-78E7EF60835E}"
+        cids(kfID_RoamingAppData) = "{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}"
+        cids(kfID_RoamingTiles) = "{00BCFC5A-ED94-4e48-96A1-3F6217F21990}"
+        cids(kfID_SampleMusic) = "{B250C668-F57D-4EE1-A63C-290EE7D1AA1F}"
+        cids(kfID_SamplePictures) = "{C4900540-2379-4C75-844B-64E6FAF8716B}"
+        cids(kfID_SamplePlaylists) = "{15CA69B3-30EE-49C1-ACE1-6B5EC372AFB5}"
+        cids(kfID_SampleVideos) = "{859EAD94-2E85-48AD-A71A-0969CB56A6CD}"
+        cids(kfID_SavedGames) = "{4C5C32FF-BB9D-43b0-B5B4-2D72E54EAAA4}"
+        cids(kfID_SavedPictures) = "{3B193882-D3AD-4eab-965A-69829D1FB59F}"
+        cids(kfID_SavedPicturesLibrary) = "{E25B5812-BE88-4bd9-94B0-29233477B6C3}"
+        cids(kfID_SavedSearches) = "{7d1d3a04-debb-4115-95cf-2f29da2920da}"
+        cids(kfID_Screenshots) = "{b7bede81-df94-4682-a7d8-57a52620b86f}"
+        cids(kfID_SEARCH_CSC) = "{ee32e446-31ca-4aba-814f-a5ebd2fd6d5e}"
+        cids(kfID_SEARCH_MAPI) = "{98ec0e18-2098-4d44-8644-66979315a281}"
+        cids(kfID_SearchHistory) = "{0D4C3DB6-03A3-462F-A0E6-08924C41B5D4}"
+        cids(kfID_SearchHome) = "{190337d1-b8ca-4121-a639-6d472d16972a}"
+        cids(kfID_SearchTemplates) = "{7E636BFE-DFA9-4D5E-B456-D7B39851D8A9}"
+        cids(kfID_SendTo) = "{8983036C-27C0-404B-8F08-102D10DCFD74}"
+        cids(kfID_SidebarDefaultParts) = "{7B396E54-9EC5-4300-BE0A-2482EBAE1A26}"
+        cids(kfID_SidebarParts) = "{A75D362E-50FC-4fb7-AC2C-A8BEAA314493}"
+        cids(kfID_SkyDrive) = "{A52BBA46-E9E1-435f-B3D9-28DAA648C0F6}"
+        cids(kfID_SkyDriveCameraRoll) = "{767E6811-49CB-4273-87C2-20F355E1085B}"
+        cids(kfID_SkyDriveDocuments) = "{24D89E24-2F19-4534-9DDE-6A6671FBB8FE}"
+        cids(kfID_SkyDriveMusic) = "{C3F2459E-80D6-45DC-BFEF-1F769F2BE730}"
+        cids(kfID_SkyDrivePictures) = "{339719B5-8C47-4894-94C2-D8F77ADD44A6}"
+        cids(kfID_StartMenu) = "{625B53C3-AB48-4EC1-BA1F-A1EF4146FC19}"
+        cids(kfID_StartMenuAllPrograms) = "{F26305EF-6948-40B9-B255-81453D09C785}"
+        cids(kfID_Startup) = "{B97D20BB-F46A-4C97-BA10-5E3608430854}"
+        cids(kfID_SyncManagerFolder) = "{43668BF8-C14E-49B2-97C9-747784D784B7}"
+        cids(kfID_SyncResultsFolder) = "{289a9a43-be44-4057-a41b-587a76d7e7f9}"
+        cids(kfID_SyncSetupFolder) = "{0F214138-B1D3-4a90-BBA9-27CBC0C5389A}"
+        cids(kfID_System) = "{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}"
+        cids(kfID_SystemX86) = "{D65231B0-B2F1-4857-A4CE-A8E7C6EA7D27}"
+        cids(kfID_Templates) = "{A63293E8-664E-48DB-A079-DF759E0509F7}"
+        cids(kfID_UserPinned) = "{9e3995ab-1f9c-4f13-b827-48b24b6c7174}"
+        cids(kfID_UserProfiles) = "{0762D272-C50A-4BB0-A382-697DCD729B80}"
+        cids(kfID_UserProgramFiles) = "{5cd7aee2-2219-4a67-b85d-6c9ce15660cb}"
+        cids(kfID_UserProgramFilesCommon) = "{bcbd3057-ca5c-4622-b42d-bc56db0ae516}"
+        cids(kfID_UsersFiles) = "{f3ce0f7c-4901-4acc-8648-d5d44b04ef8f}"
+        cids(kfID_UsersLibraries) = "{A302545D-DEFF-464b-ABE8-61C8648D939B}"
+        cids(kfID_Videos) = "{18989B1D-99B5-455B-841C-AB7C74E4DDFC}"
+        cids(kfID_VideosLibrary) = "{491E922F-5643-4af4-A7EB-4E7A138D8174}"
+        cids(kfID_Windows) = "{F38BF404-1D43-42F2-9305-67DE0B28FC23}"
+    End If
+    GetKnownFolderCLSID = cids(kfID)
+End Function
+#End If
+
+'*******************************************************************************
+'Returns the path of a 'known folder' on Windows
 'If 'createIfMissing' is set to True, the windows API function will be called
 '   with flags 'KF_FLAG_CREATE' and 'KF_FLAG_INIT' and will create the folder
 '   if it does not currently exist on the system.
 'The function can raise the following errors:
-'   -   5: (Invalid procedure call) if 'knownFolderID' is not a valid CLSID
+'   -   5: (Invalid procedure call) if 'kfID' is not valid
 '   -  76: (Path not found) if 'createIfMissing' = False AND path not found
 '   -  75: (Path/File access error) if path not found because either:
-'          * the specified FOLDERID is for a known virtual folder
+'          * the specified folder ID is for a known virtual folder
 '          * there are insufficient permissions to create the folder
 '   - 336: (Component not correctly registered) if the path, or the known
-'          FOLDERID itself are not registered in the windows registry
+'          folder ID itself are not registered in the windows registry
 '   -  51: (Internal error) if an unexpected error occurs
 '*******************************************************************************
 #If Windows Then
-Public Function GetKnownFolderWin(ByRef knownFolderID As String, _
-                         Optional ByVal createIfMissing As Boolean = False) As String
-    Const methodName As String = "GetKnownFolderWin"
+Public Function GetKnownFolderPath(ByVal kfID As KnownFolderID _
+                                 , Optional ByVal createIfMissing As Boolean = False) As String
+    Const methodName As String = "GetKnownFolderPath"
     Const NOERROR As Long = 0
-    Dim rfID As GUID
+    Static guids([_minKfID] To [_maxKfID]) As GUID
     '
-    If CLSIDFromString(StrPtr(knownFolderID), rfID) <> NOERROR Then
-        Err.Raise vbErrInvalidProcedureCall, methodName, "Invalid CLSID"
+    If kfID < [_minKfID] Or kfID > [_maxKfID] Then
+        Err.Raise vbErrInvalidProcedureCall, methodName, "Invalid Folder ID"
+    ElseIf guids(kfID).data1 = 0 Then
+        If CLSIDFromString(StrPtr(GetKnownFolderCLSID(kfID)), guids(kfID)) <> NOERROR Then
+            Err.Raise vbErrInvalidProcedureCall, methodName, "Invalid CLSID"
+        End If
     End If
     '
     Const KF_FLAG_CREATE As Long = &H8000&  'Other flags not relevant
@@ -1249,11 +1413,11 @@ Public Function GetKnownFolderWin(ByRef knownFolderID As String, _
     '
     Const S_OK As Long = 0
     Dim ppszPath As LongPtr
-    Dim hRes As Long: hRes = SHGetKnownFolderPath(rfID, dwFlags, 0, ppszPath)
+    Dim hRes As Long: hRes = SHGetKnownFolderPath(guids(kfID), dwFlags, 0, ppszPath)
     '
     If hRes = S_OK Then
-        GetKnownFolderWin = Space$(lstrlenW(ppszPath))
-        CopyMemory StrPtr(GetKnownFolderWin), ppszPath, LenB(GetKnownFolderWin)
+        GetKnownFolderPath = Space$(lstrlenW(ppszPath))
+        CopyMemory StrPtr(GetKnownFolderPath), ppszPath, LenB(GetKnownFolderPath)
     End If
     CoTaskMemFree ppszPath 'Memory must be freed, even on fail
     If hRes = S_OK Then Exit Function
