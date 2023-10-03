@@ -114,7 +114,7 @@ Option Private Module
 #End If
 
 #If VBA7 = 0 Then
-    Public Enum LongPtr
+    Private Enum LongPtr
         [_]
     End Enum
 #End If
@@ -1056,11 +1056,7 @@ Public Function GetFileOwner(ByRef filePath As String) As String
     End If
     '
     'Get owner SSID
-    #If VBA7 Then
-        Dim pOwner As LongPtr
-    #Else
-        Dim pOwner As Long
-    #End If
+    Dim pOwner As LongPtr
     If GetSecurityDescriptorOwner(sd(0), pOwner, 0&) = 0 Then Exit Function
     '
     'Get name and domain length
