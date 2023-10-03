@@ -36,8 +36,8 @@ Attribute VB_Name = "LibFileTools"
 '' No extra library references are needed (e.g. Microsoft Scripting Runtime)
 ''
 '' Public/Exposed methods:
-''    - BrowseForFiles      (Windows only)
-''    - BrowseForFolder     (Windows only)
+''    - BrowseForFiles           (Windows only)
+''    - BrowseForFolder          (Windows only)
 ''    - BuildPath
 ''    - ConvertText
 ''    - CopyFile
@@ -47,15 +47,17 @@ Attribute VB_Name = "LibFileTools"
 ''    - DeleteFolder
 ''    - FixFileName
 ''    - FixPathSeparators
-''    - GetFileOwner        (Windows only)
+''    - GetFileOwner             (Windows only)
 ''    - GetFiles
 ''    - GetFolders
-''    - GetKnownFolderCLSID (Windows only)
-''    - GetKnownFolderPath  (Windows only)
+''    - GetKnownFolderCLSID      (Windows only)
+''    - GetKnownFolderPath       (Windows only)
 ''    - GetLocalPath
 ''    - GetRelativePath
 ''    - GetRemotePath
-''    - GetSpecialFolderMac (Mac only)
+''    - GetSpecialFolderConstant (Mac only)
+''    - GetSpecialFolderDomain   (Mac only)
+''    - GetSpecialFolderPath     (Mac only)
 ''    - IsFile
 ''    - IsFolder
 ''    - IsFolderEditable
@@ -128,64 +130,70 @@ Public Enum PageCode
 #End If
 End Enum
 
-#If Mac Then 'Special folder constants for Mac
-    'Source: https://developer.apple.com/library/archive/documentation/AppleScript/Conceptual/AppleScriptLangGuide/reference/ASLR_cmds.html
-    Public Const SFC_ApplicationSupport    As String = "application support"
-    Public Const SFC_ApplicationsFolder    As String = "applications folder"
-    Public Const SFC_Desktop               As String = "desktop"
-    Public Const SFC_DesktopPicturesFolder As String = "desktop pictures folder"
-    Public Const SFC_DocumentsFolder       As String = "documents folder"
-    Public Const SFC_DownloadsFolder       As String = "downloads folder"
-    Public Const SFC_FavoritesFolder       As String = "favorites folder"
-    Public Const SFC_FolderActionScripts   As String = "Folder Action scripts"
-    Public Const SFC_Fonts                 As String = "fonts"
-    Public Const SFC_Help                  As String = "help"
-    Public Const SFC_HomeFolder            As String = "home folder"
-    Public Const SFC_InternetPlugins       As String = "internet plugins"
-    Public Const SFC_KeychainFolder        As String = "keychain folder"
-    Public Const SFC_LibraryFolder         As String = "library folder"
-    Public Const SFC_ModemScripts          As String = "modem scripts"
-    Public Const SFC_MoviesFolder          As String = "movies folder"
-    Public Const SFC_MusicFolder           As String = "music folder"
-    Public Const SFC_PicturesFolder        As String = "pictures folder"
-    Public Const SFC_Preferences           As String = "preferences"
-    Public Const SFC_PrinterDescriptions   As String = "printer descriptions"
-    Public Const SFC_PublicFolder          As String = "public folder"
-    Public Const SFC_ScriptingAdditions    As String = "scripting additions"
-    Public Const SFC_ScriptsFolder         As String = "scripts folder"
-    Public Const SFC_ServicesFolder        As String = "services folder"
-    Public Const SFC_SharedDocuments       As String = "shared documents"
-    Public Const SFC_SharedLibraries       As String = "shared libraries"
-    Public Const SFC_SitesFolder           As String = "sites folder"
-    Public Const SFC_StartupDisk           As String = "startup disk"
-    Public Const SFC_StartupItems          As String = "startup items"
-    Public Const SFC_SystemFolder          As String = "system folder"
-    Public Const SFC_SystemPreferences     As String = "system preferences"
-    Public Const SFC_TemporaryItems        As String = "temporary items"
-    Public Const SFC_Trash                 As String = "trash"
-    Public Const SFC_UsersFolder           As String = "users folder"
-    Public Const SFC_UtilitiesFolder       As String = "utilities folder"
-    Public Const SFC_WorkflowsFolder       As String = "workflows folder"
-                                      
-    'Classic domain only
-    Public Const SFC_AppleMenu             As String = "apple menu"
-    Public Const SFC_ControlPanels         As String = "control panels"
-    Public Const SFC_ControlStripModules   As String = "control strip modules"
-    Public Const SFC_Extensions            As String = "extensions"
-    Public Const SFC_LauncherItemsFolder   As String = "launcher items folder"
-    Public Const SFC_PrinterDrivers        As String = "printer drivers"
-    Public Const SFC_Printmonitor          As String = "printmonitor"
-    Public Const SFC_ShutdownFolder        As String = "shutdown folder"
-    Public Const SFC_SpeakableItems        As String = "speakable items"
-    Public Const SFC_Stationery            As String = "stationery"
-    Public Const SFC_Voices                As String = "voices"
-
-    'The following domain names are valid:
-    Public Const DOMAIN_System  As String = "system"
-    Public Const DOMAIN_Local   As String = "local"
-    Public Const DOMAIN_Network As String = "network"
-    Public Const DOMAIN_User    As String = "user"
-    Public Const DOMAIN_Classic As String = "classic"
+#If Mac Then
+    Public Enum SpecialFolderConstant 'See 'GetSpecialFolderConstant'
+        sfc_ApplicationSupport
+        [_minSFC] = sfc_ApplicationSupport
+        sfc_ApplicationsFolder
+        sfc_Desktop
+        sfc_DesktopPicturesFolder
+        sfc_DocumentsFolder
+        sfc_DownloadsFolder
+        sfc_FavoritesFolder
+        sfc_FolderActionScripts
+        sfc_Fonts
+        sfc_Help
+        sfc_HomeFolder
+        sfc_InternetPlugins
+        sfc_KeychainFolder
+        sfc_LibraryFolder
+        sfc_ModemScripts
+        sfc_MoviesFolder
+        sfc_MusicFolder
+        sfc_PicturesFolder
+        sfc_Preferences
+        sfc_PrinterDescriptions
+        sfc_PublicFolder
+        sfc_ScriptingAdditions
+        sfc_ScriptsFolder
+        sfc_ServicesFolder
+        sfc_SharedDocuments
+        sfc_SharedLibraries
+        sfc_SitesFolder
+        sfc_StartupDisk
+        sfc_StartupItems
+        sfc_SystemFolder
+        sfc_SystemPreferences
+        sfc_TemporaryItems
+        sfc_Trash
+        sfc_UsersFolder
+        sfc_UtilitiesFolder
+        sfc_WorkflowsFolder
+        '
+        'Classic domain only
+        sfc_AppleMenu
+        sfc_ControlPanels
+        sfc_ControlStripModules
+        sfc_Extensions
+        sfc_LauncherItemsFolder
+        sfc_PrinterDrivers
+        sfc_Printmonitor
+        sfc_ShutdownFolder
+        sfc_SpeakableItems
+        sfc_Stationery
+        sfc_Voices
+        [_maxSFC] = sfc_Voices
+    End Enum
+    Public Enum SpecialFolderDomain 'See 'GetSpecialFolderDomain
+        [_sfdNone] = 0
+        [_minSFD] = [_sfdNone]
+        sfd_System
+        sfd_Local
+        sfd_Network
+        sfd_User
+        sfd_Classic
+        [_maxSFD] = sfd_Classic
+    End Enum
 #Else
     Public Enum KnownFolderID 'See 'GetKnownFolderCLSID' method
         kfID_AccountPictures = 0
@@ -1672,10 +1680,91 @@ Public Function GetRemotePath(ByRef fullPath As String _
     End If
 End Function
 
-#If Mac Then
 '*******************************************************************************
-'Gets path of a 'special folder' using the respective 'folder constant' on Mac
-'Use prefixed constants 'SFC_' and 'DOMAIN_' for the first 2 arguments
+'Source: https://developer.apple.com/library/archive/documentation/AppleScript/Conceptual/AppleScriptLangGuide/reference/ASLR_cmds.html
+'Returns a special folder constant on Mac based on the corresponding enum value
+'*******************************************************************************
+#If Mac Then
+Public Function GetSpecialFolderConstant(ByVal sfc As SpecialFolderConstant) As String
+    Static sfcs([_minSFC] To [_maxSFC]) As String
+    '
+    If sfc < [_minSFC] Or sfc > [_maxSFC] Then Exit Function
+    If LenB(sfcs([_minSFC])) = 0 Then
+        sfcs(sfc_ApplicationSupport) = "application support"
+        sfcs(sfc_ApplicationsFolder) = "applications folder"
+        sfcs(sfc_Desktop) = "desktop"
+        sfcs(sfc_DesktopPicturesFolder) = "desktop pictures folder"
+        sfcs(sfc_DocumentsFolder) = "documents folder"
+        sfcs(sfc_DownloadsFolder) = "downloads folder"
+        sfcs(sfc_FavoritesFolder) = "favorites folder"
+        sfcs(sfc_FolderActionScripts) = "Folder Action scripts"
+        sfcs(sfc_Fonts) = "fonts"
+        sfcs(sfc_Help) = "help"
+        sfcs(sfc_HomeFolder) = "home folder"
+        sfcs(sfc_InternetPlugins) = "internet plugins"
+        sfcs(sfc_KeychainFolder) = "keychain folder"
+        sfcs(sfc_LibraryFolder) = "library folder"
+        sfcs(sfc_ModemScripts) = "modem scripts"
+        sfcs(sfc_MoviesFolder) = "movies folder"
+        sfcs(sfc_MusicFolder) = "music folder"
+        sfcs(sfc_PicturesFolder) = "pictures folder"
+        sfcs(sfc_Preferences) = "preferences"
+        sfcs(sfc_PrinterDescriptions) = "printer descriptions"
+        sfcs(sfc_PublicFolder) = "public folder"
+        sfcs(sfc_ScriptingAdditions) = "scripting additions"
+        sfcs(sfc_ScriptsFolder) = "scripts folder"
+        sfcs(sfc_ServicesFolder) = "services folder"
+        sfcs(sfc_SharedDocuments) = "shared documents"
+        sfcs(sfc_SharedLibraries) = "shared libraries"
+        sfcs(sfc_SitesFolder) = "sites folder"
+        sfcs(sfc_StartupDisk) = "startup disk"
+        sfcs(sfc_StartupItems) = "startup items"
+        sfcs(sfc_SystemFolder) = "system folder"
+        sfcs(sfc_SystemPreferences) = "system preferences"
+        sfcs(sfc_TemporaryItems) = "temporary items"
+        sfcs(sfc_Trash) = "trash"
+        sfcs(sfc_UsersFolder) = "users folder"
+        sfcs(sfc_UtilitiesFolder) = "utilities folder"
+        sfcs(sfc_WorkflowsFolder) = "workflows folder"
+        '
+        'Classic domain only
+        sfcs(sfc_AppleMenu) = "apple menu"
+        sfcs(sfc_ControlPanels) = "control panels"
+        sfcs(sfc_ControlStripModules) = "control strip modules"
+        sfcs(sfc_Extensions) = "extensions"
+        sfcs(sfc_LauncherItemsFolder) = "launcher items folder"
+        sfcs(sfc_PrinterDrivers) = "printer drivers"
+        sfcs(sfc_Printmonitor) = "printmonitor"
+        sfcs(sfc_ShutdownFolder) = "shutdown folder"
+        sfcs(sfc_SpeakableItems) = "speakable items"
+        sfcs(sfc_Stationery) = "stationery"
+        sfcs(sfc_Voices) = "voices"
+    End If
+    GetSpecialFolderConstant = sfcs(sfc)
+End Function
+#End If
+
+'*******************************************************************************
+'Returns a special folder domain on Mac based on the corresponding enum value
+'*******************************************************************************
+#If Mac Then
+Public Function GetSpecialFolderDomain(ByVal sfd As SpecialFolderDomain) As String
+    Static sfds([_minSFD] To [_maxSFD]) As String
+    '
+    If sfd < [_minSFD] Or sfd > [_maxSFD] Then Exit Function
+    If LenB(sfds([_maxSFD])) = 0 Then
+        sfds(sfd_System) = "system"
+        sfds(sfd_Local) = "local"
+        sfds(sfd_Network) = "network"
+        sfds(sfd_User) = "user"
+        sfds(sfd_Classic) = "classic"
+    End If
+    GetSpecialFolderDomain = sfds(sfd)
+End Function
+#End If
+
+'*******************************************************************************
+'Returns the path of a 'special folder' on Mac
 'If 'createIfMissing' is set to True, the function will try to create the folder
 '   if it does not currently exist on the system. Note that this argument
 '   ignores the 'forceNonSandboxedPath' option, and it can happen that the
@@ -1683,26 +1772,25 @@ End Function
 '   sandboxed path. This behavior can not be avoided without creating access
 '   requests, therefore it should be taken into account by the user
 'The function can raise the following errors:
-'   -  5: (Invalid procedure call) if 'domainName' is invalid
+'   -  5: (Invalid procedure call) if 'sfc' or 'sfd' is invalid
 '   - 76: (Path not found) if 'createIfMissing' = False AND path not found
 '   - 75: (Path/File access error) if 'createIfMissing'= True AND path not found
 '*******************************************************************************
-Public Function GetSpecialFolderMac(ByRef specialFolderConstant As String _
-                                  , Optional ByRef domainName As String = vbNullString _
-                                  , Optional ByVal forceNonSandboxedPath As Boolean = True _
-                                  , Optional ByVal createIfMissing As Boolean = False) As String
-    Const methodName As String = "GetSpecialFolderMac"
+#If Mac Then
+Public Function GetSpecialFolderPath(ByVal sfc As SpecialFolderConstant _
+                                   , Optional ByVal sfd As SpecialFolderDomain = [_sfdNone] _
+                                   , Optional ByVal forceNonSandboxedPath As Boolean = True _
+                                   , Optional ByVal createIfMissing As Boolean = False) As String
+    Const methodName As String = "GetSpecialFolderPath"
     '
-    Select Case LCase$(domainName)
-    Case "system", "local", "network", "user", "classic", vbNullString
-    Case Else
-        Err.Raise vbErrInvalidProcedureCall, methodName, "Invalid domain name" _
-                & ". Expected one of: system, local, network, user, classic"
-    End Select
+    If sfc < [_minSFC] Or sfc > [_maxSFC] _
+    Or sfd < [_minSFD] Or sfd > [_maxSFD] Then
+        Err.Raise vbErrInvalidProcedureCall, methodName, "Invalid constant/domain"
+    End If
     '
-    Dim cmd As String: cmd = specialFolderConstant
+    Dim cmd As String: cmd = GetSpecialFolderConstant(sfc)
     '
-    If LenB(domainName) > 0 Then cmd = cmd & " from " & domainName & " domain"
+    If sfd <> [_sfdNone] Then cmd = cmd & " from " & GetSpecialFolderDomain(sfd) & " domain"
     cmd = cmd & IIf(createIfMissing, " with", " without") & " folder creation"
     cmd = "return POSIX path of (path to " & cmd & ") as string"
     '
@@ -1717,17 +1805,17 @@ Public Function GetSpecialFolderMac(ByRef specialFolderConstant As String _
     End If
     '
     On Error GoTo PathDoesNotExist
-    GetSpecialFolderMac = MacScript(cmd)
+    GetSpecialFolderPath = MacScript(cmd)
     On Error GoTo 0
     '
     If forceNonSandboxedPath Then
         Dim sboxPath As String:    sboxPath = Environ$("HOME")
         Dim i As Long:             i = InStrRev(sboxPath, "/Library/Containers/")
         Dim sboxRelPath As String: If i > 0 Then sboxRelPath = Mid$(sboxPath, i)
-        GetSpecialFolderMac = Replace(GetSpecialFolderMac, sboxRelPath _
-                                    , vbNullString, , 1, vbTextCompare)
+        GetSpecialFolderPath = Replace(GetSpecialFolderPath, sboxRelPath _
+                                     , vbNullString, , 1, vbTextCompare)
     End If
-    If LenB(GetSpecialFolderMac) > 0 Then Exit Function
+    If LenB(GetSpecialFolderPath) > 0 Then Exit Function
 PathDoesNotExist:
     Const errMsg As String = "Not available or needs specific domain"
     If createIfMissing Then
