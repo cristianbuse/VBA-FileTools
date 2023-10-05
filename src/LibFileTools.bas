@@ -83,6 +83,8 @@ Option Private Module
     #End If
 #Else
     #If VBA7 Then
+        Private Declare PtrSafe Function CommDlgExtendedError Lib "comdlg32.dll" () As Long
+        Private Declare PtrSafe Function GetOpenFileNameW Lib "comdlg32.dll" (pOpenfilename As OPENFILENAME) As Long
         Private Declare PtrSafe Function CopyFileW Lib "kernel32" (ByVal lpExistingFileName As LongPtr, ByVal lpNewFileName As LongPtr, ByVal bFailIfExists As Long) As Long
         Private Declare PtrSafe Function DeleteFileW Lib "kernel32" (ByVal lpFileName As LongPtr) As Long
         Private Declare PtrSafe Function RemoveDirectoryW Lib "kernel32" (ByVal lpPathName As LongPtr) As Long
@@ -97,6 +99,8 @@ Option Private Module
         Private Declare PtrSafe Sub CoTaskMemFree Lib "ole32" (ByVal hMem As LongPtr)
         Private Declare PtrSafe Sub CopyMemory Lib "kernel32" Alias "RtlMoveMemory" (ByVal Destination As LongPtr, ByVal Source As LongPtr, ByVal Length As LongPtr)
     #Else
+        Private Declare Function CommDlgExtendedError Lib "comdlg32.dll" () As Long
+        Private Declare Function GetOpenFileNameW Lib "comdlg32.dll" (pOpenfilename As OPENFILENAME) As Long
         Private Declare Function CopyFileW Lib "kernel32" (ByVal lpExistingFileName As Long, ByVal lpNewFileName As Long, ByVal bFailIfExists As Long) As Long
         Private Declare Function DeleteFileW Lib "kernel32" (ByVal lpFileName As Long) As Long
         Private Declare Function RemoveDirectoryW Lib "kernel32" (ByVal lpPathName As Long) As Long
@@ -357,6 +361,33 @@ End Type
         data3 As Integer
         data4(0 To 7) As Byte
     End Type
+    '
+    'https://docs.microsoft.com/en-gb/windows/win32/api/commdlg/ns-commdlg-openfilenamea
+    Private Type OPENFILENAME
+        lStructSize As Long
+        hwndOwner As LongPtr
+        hInstance As LongPtr
+        lpstrFilter As LongPtr
+        lpstrCustomFilter As LongPtr
+        nMaxCustFilter As Long
+        nFilterIndex As Long
+        lpstrFile As LongPtr
+        nMaxFile As Long
+        lpstrFileTitle As LongPtr
+        nMaxFileTitle As Long
+        lpstrInitialDir As LongPtr
+        lpstrTitle As LongPtr
+        flags As Long
+        nFileOffset As Integer
+        nFileExtension As Integer
+        lpstrDefExt As LongPtr
+        lCustData As LongPtr
+        lpfnHook As LongPtr
+        lpTemplateName As LongPtr
+        pvReserved As LongPtr
+        dwReserved As Long
+        flagsEx As Long
+    End Type
 #End If
 
 Private Type ONEDRIVE_PROVIDER
@@ -415,38 +446,51 @@ Private m_providers As ONEDRIVE_PROVIDERS
 
 '*******************************************************************************
 'Returns a Collection of file paths by using a FilePicker FileDialog
+'Always returns an instantiated Collection
+'
+'More than one file extension may be specified in the 'filterExtensions' param
+'   and each must be separated by a semi-colon. For example: "*.txt;*.csv".
+'   Spaces will be ignored
 '*******************************************************************************
-#If Mac Then
-    'Not implemented
-    'Seems achievable via script:
-    '   - https://stackoverflow.com/a/15546518/8488913
-    '   - https://stackoverflow.com/a/37411960/8488913
-#Else
 Public Function BrowseForFiles(Optional ByRef initialPath As String _
                              , Optional ByRef dialogTitle As String _
                              , Optional ByRef filterDesc As String _
-                             , Optional ByRef filterList As String _
+                             , Optional ByRef filterExtensions As String _
                              , Optional ByVal allowMultiFiles As Boolean = True) As Collection
-    'In case reference to Microsoft Office X.XX Object Library is missing
-    Const dialogTypeFilePicker As Long = 3 'msoFileDialogFilePicker
+    'msoFileDialogFilePicker = 3 - only available for some Microsoft apps
+    Const dialogTypeFilePicker As Long = 3
     Const actionButton As Long = -1
+    Dim filePicker As Object
+    Dim app As Object: Set app = Application 'Late-binded for compatibility
     '
-    With Application.FileDialog(dialogTypeFilePicker)
+    On Error Resume Next
+    Set filePicker = app.FileDialog(dialogTypeFilePicker)
+    On Error GoTo 0
+    '
+    If filePicker Is Nothing Then
+    #If Mac Then
+        'Not implemented
+        'Seems achievable via script:
+        '   - https://stackoverflow.com/a/15546518/8488913
+        '   - https://stackoverflow.com/a/37411960/8488913
+    #Else
+        Set BrowseForFiles = BrowseFilesAPI(initialPath, dialogTitle, filterDesc _
+                                          , filterExtensions, allowMultiFiles)
+    #End If
+        Exit Function
+    End If
+    '
+    With filePicker
         If LenB(dialogTitle) > 0 Then .Title = dialogTitle
         If LenB(initialPath) > 0 Then .InitialFileName = initialPath
-        If LenB(.InitialFileName) = 0 Then
-            Dim app As Object: Set app = Application 'Needs to be late-binded
-            Select Case Application.Name
-                Case "Microsoft Excel": .InitialFileName = GetLocalPath(app.ThisWorkbook.Path, , True)
-                Case "Microsoft Word":  .InitialFileName = GetLocalPath(app.ThisDocument.Path, , True)
-            End Select
+        .allowMultiSelect = allowMultiFiles
+        .filters.Clear
+        If LenB(filterExtensions) > 0 Then
+            On Error Resume Next
+            .filters.Add filterDesc, filterExtensions
+            On Error GoTo 0
         End If
-        '
-        .AllowMultiSelect = allowMultiFiles
-        .filters.Clear 'Allows all file types
-        On Error Resume Next
-        .filters.Add filterDesc, filterList
-        On Error GoTo 0
+        If .filters.Count = 0 Then .filters.Add "All Files", "*.*"
         '
         Set BrowseForFiles = New Collection
         If .Show = actionButton Then
@@ -457,6 +501,106 @@ Public Function BrowseForFiles(Optional ByRef initialPath As String _
             Next v
         End If
     End With
+End Function
+
+'*******************************************************************************
+'Returns a Collection of file paths by creating an Open dialog box that lets the
+'   user specify the drive, directory, and the name of the file(s)
+'*******************************************************************************
+#If Windows Then
+Private Function BrowseFilesAPI(ByRef initialPath As String _
+                              , ByRef dialogTitle As String _
+                              , ByRef filterDesc As String _
+                              , ByRef filterExtensions As String _
+                              , ByVal allowMultiFiles As Boolean) As Collection
+    Dim ofName As OPENFILENAME
+    Dim resultPaths As New Collection
+    Dim buffFiles As String
+    Dim buffFilter As String
+    Dim temp As String
+    '
+    With ofName
+        On Error Resume Next
+        Dim app As Object: Set app = Application
+        .hwndOwner = app.Hwnd
+        On Error GoTo 0
+        '
+        .lStructSize = LenB(ofName)
+        If LenB(filterExtensions) = 0 Then
+            buffFilter = "All Files (*.*)" & vbNullChar & "*.*"
+        Else
+            temp = Replace(filterExtensions, ",", ";")
+            buffFilter = filterDesc & " (" & temp & ")" & vbNullChar & temp
+        End If
+        buffFilter = buffFilter & vbNullChar & vbNullChar
+        .lpstrFilter = StrPtr(buffFilter)
+        '
+        .nMaxFile = &H100000
+        buffFiles = VBA.Space$(.nMaxFile)
+        .lpstrFile = StrPtr(buffFiles)
+        .lpstrInitialDir = StrPtr(initialPath)
+        .lpstrTitle = StrPtr(dialogTitle)
+        '
+        Const OFN_HIDEREADONLY As Long = &H4&
+        Const OFN_ALLOWMULTISELECT As Long = &H200&
+        Const OFN_PATHMUSTEXIST As Long = &H800&
+        Const OFN_FILEMUSTEXIST As Long = &H1000&
+        Const OFN_EXPLORER As Long = &H80000
+        '
+        .flags = OFN_HIDEREADONLY Or OFN_PATHMUSTEXIST Or OFN_FILEMUSTEXIST
+        If allowMultiFiles Then
+            .flags = .flags Or OFN_ALLOWMULTISELECT Or OFN_EXPLORER
+        End If
+    End With
+    '
+    Do
+        Const FNERR_BUFFERTOOSMALL As Long = &H3003&
+        Dim mustRetry As Boolean: mustRetry = False
+        Dim i As Long
+        Dim j As Long
+        '
+        If GetOpenFileNameW(ofName) Then
+            i = InStr(1, buffFiles, vbNullChar)
+            temp = Left$(buffFiles, i - 1)
+            '
+            If allowMultiFiles Then
+                j = InStr(i + 1, buffFiles, vbNullChar)
+                If j = i + 1 Then 'Single file selected
+                    resultPaths.Add temp
+                Else
+                    temp = BuildPath(temp, vbNullString) 'Parent folder
+                    Do
+                        resultPaths.Add temp & Mid$(buffFiles, i + 1, j - i)
+                        i = j
+                        j = InStr(i + 1, buffFiles, vbNullChar)
+                    Loop Until j = i + 1
+                End If
+            Else
+                resultPaths.Add temp
+            End If
+        ElseIf CommDlgExtendedError() = FNERR_BUFFERTOOSMALL Then
+            Dim b() As Byte: b = LeftB$(buffFiles, 4)
+            '
+            If b(3) And &H80 Then
+                mustRetry = (MsgBox("Try selecting fewer files" _
+                                  , vbExclamation + vbRetryCancel _
+                                  , "Insufficient memory") = vbRetry)
+            Else
+                With ofName
+                    .nMaxFile = b(3)
+                    For i = 2 To 0 Step -1
+                        .nMaxFile = .nMaxFile * &H100& + b(i)
+                    Next i
+                    buffFiles = VBA.Space$(.nMaxFile)
+                    .lpstrFile = StrPtr(buffFiles)
+                End With
+                MsgBox "Did not expect so many files. Please select again!" _
+                     , vbInformation, "Repeat selection"
+                mustRetry = True
+            End If
+        End If
+    Loop Until Not mustRetry
+    Set BrowseFilesAPI = resultPaths
 End Function
 #End If
 
