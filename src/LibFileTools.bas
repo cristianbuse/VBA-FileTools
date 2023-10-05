@@ -63,6 +63,7 @@ Attribute VB_Name = "LibFileTools"
 ''    - IsFolderEditable
 ''    - MoveFile
 ''    - MoveFolder
+''    - ParentFolder
 ''    - ReadBytes
 '*******************************************************************************
 
@@ -1134,7 +1135,7 @@ Public Function FixPathSeparators(ByRef pathToFix As String) As String
     i = 1
     Do
         i = InStr(i, FixPathSeparators, fParent)
-        If i = 0 Then
+        If i = 0 And Len(FixPathSeparators) > 2 Then
             i = InStr(Len(FixPathSeparators) - 2, FixPathSeparators, ps & "..")
         End If
         If i > 1 Then
@@ -1648,8 +1649,8 @@ Private Sub AddFoldersTo(ByVal collTarget As Collection _
         Const maxDirLen As Long = 247
     #End If
     Const errBadFileNameOrNumber As Long = 52
-    Const currentFolder As String = "."
-    Const parentFolder As String = ".."
+    Const currentDir As String = "."
+    Const parentDir As String = ".."
     Dim folderName As String
     Dim fullPath As String
     Dim collFolders As Collection
@@ -1670,7 +1671,7 @@ Private Sub AddFoldersTo(ByVal collTarget As Collection _
     On Error GoTo 0
     '
     Do While LenB(folderName) > 0
-        If folderName <> currentFolder And folderName <> parentFolder Then
+        If folderName <> currentDir And folderName <> parentDir Then
             collTemp.Add folderName
             If InStr(1, folderName, "?") > 0 Then 'Unsupported Unicode
                 Set collTemp = New Collection
@@ -3118,6 +3119,23 @@ Public Function MoveFolder(ByRef sourcePath As String _
     End If
     '
     MoveFolder = True
+End Function
+
+'*******************************************************************************
+'Returns the parent folder path for a given file or folder local path
+'*******************************************************************************
+Public Function ParentFolder(ByRef localPath As String) As String
+    Const ps As String = PATH_SEPARATOR
+    Dim fixedPath As String: fixedPath = FixPathSeparators(localPath)
+    Dim i As Long
+    '
+    If Len(fixedPath) < 3 Then Exit Function
+    i = InStrRev(fixedPath, ps, Len(fixedPath) - 1)
+    If i < 2 Then Exit Function
+    '
+    If Mid$(fixedPath, i - 1, 1) <> ps Then
+        ParentFolder = Left$(fixedPath, i - 1)
+    End If
 End Function
 
 '*******************************************************************************

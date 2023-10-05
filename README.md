@@ -42,6 +42,7 @@ Public/Exposed methods:
  - IsFolderEditable
  - MoveFile
  - MoveFolder
+ - ParentFolder
  - ReadBytes
 
 ## Notes
