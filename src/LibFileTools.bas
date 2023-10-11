@@ -896,7 +896,7 @@ Public Function DeleteFile(ByRef filePath As String) As Boolean
         If DeleteFile Then Exit Function
         Err.Clear
     #End If
-    SetAttr filePath, vbNormal 'Too costly to do after failing Delete
+    SetAttr filePath, vbNormal 'Too costly to do after failing Kill
     Err.Clear
     Kill filePath
     DeleteFile = (Err.Number = 0)
@@ -2822,13 +2822,16 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
     Dim parentID As String
     Dim lastParentID As String
     Dim folderName As String
-    Dim lastFolderName As String
     Dim currDataEnd As Long
     Dim lastDataEnd As Long
     Dim headByte As Byte
-    Dim lastHeadByte
+    Dim lastHeadByte As Byte
+    Dim lastNameStart As Long
+    Dim lastNameSize As Long
     Dim has5HeadBytes As Boolean
     Dim heads As New Collection
+    Dim isASCII As Boolean
+    Dim idExists As Boolean
     '
     idPattern = Replace(Space$(12), " ", "[a-fA-F0-9]") & "*"
     Do
@@ -2842,28 +2845,43 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
             lastFileChange = currFileChange
             lastRecord = 1
         End If
+        If LenB(lastFolderID) > 0 Then
+            folderName = MidB$(s, lastNameStart, lastNameSize)
+            isASCII = AreBytesAscii(b, lastNameStart, lastNameSize)
+        End If
         Get fileNumber, lastRecord, b
         s = b
         i = InStrB(1 - headBytes6Offset, s, sig88)
         lastDataEnd = 0
         Do While i > 0
             If i + headBytes6Offset - 2 > lastDataEnd And LenB(lastFolderID) > 0 Then
-                On Error Resume Next 'Ignore duplicates
-                cDirs.Add lastFolderName, lastFolderID
-                If Err.Number <> 0 Then
-                    If cDirs(lastFolderID) <> lastFolderName _
-                    Or outParents(lastFolderID) <> lastParentID Then
-                        If heads(lastFolderID) < lastHeadByte Then
-                            cDirs.Remove lastFolderID
-                            outParents.Remove lastFolderID
-                            heads.Remove lastFolderID
-                            cDirs.Add lastFolderName, lastFolderID
-                        End If
+                On Error Resume Next
+                cDirs lastFolderID
+                idExists = (Err.Number = 0)
+                On Error GoTo 0
+                '
+                If idExists Then
+                    If heads(lastFolderID) < lastHeadByte Then
+                        cDirs.Remove lastFolderID
+                        outParents.Remove lastFolderID
+                        heads.Remove lastFolderID
+                        idExists = False
                     End If
                 End If
-                outParents.Add lastParentID, lastFolderID
-                heads.Add lastHeadByte, lastFolderID
-                On Error GoTo 0
+                If Not idExists Then
+                    If lastDataEnd > 0 Then
+                        folderName = MidB$(s, lastNameStart, lastNameSize)
+                        isASCII = AreBytesAscii(b, lastNameStart, lastNameSize)
+                    End If
+                    If isASCII Then
+                        folderName = StrConv(folderName, vbUnicode)
+                    Else
+                        folderName = ConvertText(folderName, codeUTF16LE, codeUTF8)
+                    End If
+                    cDirs.Add folderName, lastFolderID
+                    outParents.Add lastParentID, lastFolderID
+                    heads.Add lastHeadByte, lastFolderID
+                End If
                 lastFolderID = vbNullString
             End If
             '
@@ -2913,25 +2931,10 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
             parentID = StrConv(MidB$(s, j, idSize(2)), vbUnicode)
             '
             If folderID Like idPattern And parentID Like idPattern Then
-                j = j + idSize(2) + idSize(3) + idSize(4)
-                folderName = MidB$(s, j, nameSize)
-                '
-                Dim isASCII As Boolean: isASCII = True
-                For j = j To j + nameSize - 1
-                    If b(j) And &H80& Then
-                        isASCII = False
-                        Exit For
-                    End If
-                Next j
-                If isASCII Then
-                    folderName = StrConv(folderName, vbUnicode)
-                Else
-                    folderName = ConvertText(folderName, codeUTF16LE, codeUTF8)
-                End If
-                '
+                lastNameStart = j + idSize(2) + idSize(3) + idSize(4)
+                lastNameSize = nameSize
                 lastFolderID = folderID
                 lastParentID = parentID
-                lastFolderName = folderName
                 lastHeadByte = headByte
                 lastDataEnd = currDataEnd
             End If
@@ -2947,6 +2950,15 @@ NextSig:
     Set GetODDirsFromDB = cDirs
 CloseFile:
     Close #fileNumber
+End Function
+Private Function AreBytesAscii(ByRef b() As Byte _
+                             , ByVal startIndex As Long _
+                             , ByVal size As Long) As Boolean
+    Dim i As Long
+    For i = startIndex To startIndex + size - 1
+        If b(i) And &H80& Then Exit Function
+    Next i
+    AreBytesAscii = True
 End Function
 
 '*******************************************************************************
@@ -2967,7 +2979,7 @@ Public Function IsFile(ByRef filePath As String) As Boolean
     fAttr = GetAttr(filePath)
     If Err.Number = errBadFileNameOrNumber Then 'Unicode characters
         #If Mac Then
-
+            
         #Else
             IsFile = GetFSO().FileExists(filePath)
         #End If
@@ -3041,8 +3053,8 @@ Public Function IsFolderEditable(ByRef folderPath As String) As Boolean
     '
     On Error Resume Next
     MkDir tempFolder
-    If Err.Number = 0 Then RmDir tempFolder
     IsFolderEditable = (Err.Number = 0)
+    If IsFolderEditable Then RmDir tempFolder
     On Error GoTo 0
 End Function
 
@@ -3091,10 +3103,8 @@ Public Function MoveFolder(ByRef sourcePath As String _
     '   a directory or folder within the same drive. Try 'Name' first
     On Error Resume Next
     Name sourcePath As destinationPath
-    If Err.Number = 0 Then
-        MoveFolder = True
-        Exit Function
-    End If
+    MoveFolder = (Err.Number = 0)
+    If MoveFolder Then Exit Function
     On Error GoTo 0
     '
     'Try FSO if available
