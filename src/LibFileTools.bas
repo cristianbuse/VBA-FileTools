@@ -2494,7 +2494,7 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             tempMount = parts(9)
             syncID = Split(parts(10), " ")(2)
             canAdd = (LenB(tempMount) > 0)
-            If parts(3) = "ODB" Then
+            If parts(3) = "ODB" Or LenB(mainMount) = 0 Then
                 mainMount = tempMount
                 mainSyncID = syncID
                 tempURL = GetUrlNamespace(aInfo.clientPath)
