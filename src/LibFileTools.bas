@@ -2832,6 +2832,7 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
     Dim heads As New Collection
     Dim isASCII As Boolean
     Dim idExists As Boolean
+    Dim extraOffset As Long
     '
     idPattern = Replace(Space$(12), " ", "[a-fA-F0-9]") & "*"
     Do
@@ -2887,6 +2888,7 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
             '
             If b(i + sig8Offset) <> sig8 Then GoTo NextSig
             has5HeadBytes = True
+            extraOffset = 0
             If b(i + headBytes5Offset) = headBytes5 Then
                 j = i + headBytes5Offset
             ElseIf b(i + headBytes6Offset) = headBytes6 Then
@@ -2894,6 +2896,9 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
                 has5HeadBytes = False 'Has 6 bytes header
             ElseIf b(i + headBytes5Offset) <= maxSigByte Then
                 j = i + headBytes5Offset
+            ElseIf b(i + headBytes5Offset) = headBytes6 Then
+                j = i + headBytes5Offset
+                extraOffset = 1
             Else
                 GoTo NextSig
             End If
@@ -2925,7 +2930,7 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
                 i = i - 1
                 Exit Do
             End If
-            j = i + sig88ToDataOffset
+            j = i + sig88ToDataOffset + extraOffset
             folderID = StrConv(MidB$(s, j, idSize(1)), vbUnicode)
             j = j + idSize(1)
             parentID = StrConv(MidB$(s, j, idSize(2)), vbUnicode)
