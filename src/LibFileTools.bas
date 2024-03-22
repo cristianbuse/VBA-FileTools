@@ -2483,18 +2483,51 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
     Dim cParents As Collection
     Dim cPending As New Collection
     Dim canAdd As Boolean
+    Dim collTags As New Collection
+    Dim arrTags() As Variant
+    Dim vTag As Variant
+    Dim tempColl As Collection
+    Dim collSortedLines As New Collection
+    Dim i As Long, j As Long
+    Dim targetCount As Long
     '
     #If Mac Then
         iniText = ConvertText(iniText, codeUTF16LE, codeUTF8, True)
     #End If
+    arrTags = Array("libraryScope", "libraryFolder", "AddedScope")
+    For Each vTag In arrTags
+        collTags.Add New Collection, vTag
+    Next vTag
     For Each lineText In Split(iniText, vbNewLine)
+        i = InStr(1, lineText, " = ", vbBinaryCompare)
+        If i > 0 Then
+            vTag = Left$(lineText, i - 1)
+            Select Case vTag
+            Case arrTags(0), arrTags(1), arrTags(2)
+                i = i + 3
+                j = InStr(i, lineText, " ", vbBinaryCompare)
+                collTags(vTag).Add lineText, Mid$(lineText, i, j - i)
+            End Select
+        End If
+    Next lineText
+    On Error Resume Next
+    For Each tempColl In collTags
+        i = 0
+        targetCount = collSortedLines.Count + tempColl.Count
+        Do
+            collSortedLines.Add tempColl(CStr(i))
+            i = i + 1
+        Loop Until collSortedLines.Count = targetCount
+    Next tempColl
+    On Error GoTo 0
+    For Each lineText In collSortedLines
         Dim parts() As String: parts = Split(lineText, """")
         Select Case Left$(lineText, InStr(1, lineText, " "))
         Case "libraryScope "
             tempMount = parts(9)
             syncID = Split(parts(10), " ")(2)
             canAdd = (LenB(tempMount) > 0)
-            If parts(3) = "ODB" Or LenB(mainMount) = 0 Then
+            If LenB(mainMount) = 0 Then
                 mainMount = tempMount
                 mainSyncID = syncID
                 tempURL = GetUrlNamespace(aInfo.clientPath)
