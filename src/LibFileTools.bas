@@ -434,11 +434,12 @@ End Type
     Public Const PATH_SEPARATOR = "\"
 #End If
 
-Private Const vbErrInvalidProcedureCall   As Long = 5
-Private Const vbErrInternalError          As Long = 51
-Private Const vbErrPathFileAccessError    As Long = 75
-Private Const vbErrPathNotFound           As Long = 76
-Private Const vbErrComponentNotRegistered As Long = 336
+Private Const vbErrInvalidProcedureCall        As Long = 5
+Private Const vbErrInternalError               As Long = 51
+Private Const vbErrPathFileAccessError         As Long = 75
+Private Const vbErrPathNotFound                As Long = 76
+Private Const vbErrInvalidFormatInResourceFile As Long = 325
+Private Const vbErrComponentNotRegistered      As Long = 336
 
 Private m_providers As ONEDRIVE_PROVIDERS
 #If Mac Then
@@ -2527,7 +2528,7 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             tempMount = parts(9)
             syncID = Split(parts(10), " ")(2)
             canAdd = (LenB(tempMount) > 0)
-            If LenB(mainMount) = 0 Then
+            If Split(lineText, " ", 4, vbBinaryCompare)(2) = "0" Then
                 mainMount = tempMount
                 mainSyncID = syncID
                 tempURL = GetUrlNamespace(aInfo.clientPath)
@@ -2555,6 +2556,7 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             canAdd = (LenB(tempFolder) > 0)
             tempURL = tempURL & tempFolder
         Case "AddedScope "
+            If LenB(mainMount) = 0 Then Err.Raise vbErrInvalidFormatInResourceFile
             If cDirs Is Nothing Then Set cDirs = GetODDirs(aInfo, cParents)
             tempID = Split(parts(0), " ")(3)
             tempFolder = vbNullString
