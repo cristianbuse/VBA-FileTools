@@ -2829,12 +2829,16 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
     Dim size As Long: size = LOF(fileNumber)
     If size = 0 Then GoTo CloseFile
     '                             __    ____
-    'Signature bytes: 0b0b0b0b0b0b080b0b08080b0b0b0b where b>=0, b <= 9
+    'Signature bytes 8: 0b0b0b0b0b0b080b0b08080b0b0b0b where b>=0, b <= 9
+    'Signature bytes 0: 0b0b0b0b0b0b000b0b00000b0b0b0b where b>=0, b <= 9
     Dim sig88 As String: sig88 = ChrW$(&H808)
+    Dim sig00 As String: sig00 = vbNullChar
+    Dim sigB As Long
     Const sig8 As Long = 8
-    Const sig8Offset As Long = -3
+    Const sig0 As Long = 0
+    Const sigBOffset As Long = -3
     Const maxSigByte As Byte = 9
-    Const sig88ToDataOffset As Long = 6 'Data comes after the signature
+    Const sigBBToDataOffset As Long = 6 'Data comes after the signature
     Const headBytes6 As Long = &H16
     Const headBytes5 As Long = &H15
     Const headBytes6Offset As Long = -16 'Header comes before the signature
@@ -2848,6 +2852,8 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
     Dim i As Long
     Dim j As Long
     Dim k As Long
+    Dim i8 As Long
+    Dim i0 As Long
     Dim cDirs As Collection
     Dim bytes As Long
     Dim idSize(1 To 4) As Byte
@@ -2887,7 +2893,17 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
         End If
         Get fileNumber, lastRecord, b
         s = b
-        i = InStrB(1 - headBytes6Offset, s, sig88)
+        '
+        i8 = InStrB(1 - headBytes6Offset, s, sig88)
+        i0 = InStrB(1 - headBytes6Offset, s, sig00)
+        If i8 < i0 Then
+            sigB = sig8
+            i = i8
+        Else
+            sigB = sig0
+            i = i0
+        End If
+        '
         lastDataEnd = 0
         Do While i > 0
             If i + headBytes6Offset - 2 > lastDataEnd And LenB(lastFolderID) > 0 Then
@@ -2921,7 +2937,8 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
                 lastFolderID = vbNullString
             End If
             '
-            If b(i + sig8Offset) <> sig8 Then GoTo NextSig
+            If b(i + sigBOffset) <> sigB Then GoTo NextSig
+            '
             has5HeadBytes = True
             extraOffset = 0
             If b(i + headBytes5Offset) = headBytes5 Then
@@ -2939,7 +2956,7 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
             End If
             headByte = b(j)
             '
-            bytes = sig88ToDataOffset
+            bytes = sigBBToDataOffset
             For k = 1 To 4
                 If k = 1 And headByte <= maxSigByte Then
                     idSize(k) = b(j + 2) 'Ignore first header byte
@@ -2965,7 +2982,7 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
                 i = i - 1
                 Exit Do
             End If
-            j = i + sig88ToDataOffset + extraOffset
+            j = i + sigBBToDataOffset + extraOffset
             folderID = StrConv(MidB$(s, j, idSize(1)), vbUnicode)
             j = j + idSize(1)
             parentID = StrConv(MidB$(s, j, idSize(2)), vbUnicode)
@@ -2979,7 +2996,18 @@ Private Function GetODDirsFromDB(ByRef filePath As String _
                 lastDataEnd = currDataEnd
             End If
 NextSig:
-            i = InStrB(i + 1, s, sig88)
+            If i8 < i0 Then
+                i8 = InStrB(i + 1, s, sig88)
+            Else
+                i0 = InStrB(i + 1, s, sig00)
+            End If
+            If i8 < i0 Then
+                sigB = sig8
+                i = i8
+            Else
+                sigB = sig0
+                i = i0
+            End If
         Loop
         If i = 0 Then
             lastRecord = lastRecord + chunkSize + headBytes6Offset
