@@ -2066,6 +2066,61 @@ Private Function AlignDriveNameIfNeeded(ByRef driveName As String _
 End Function
 #End If
 
+Private Function DecodeURL(ByRef odWebPath As String) As String
+    Static nibbleMap(0 To 255) As Long 'Nibble: 0 to F. Byte: 00 to FF
+    Static charMap(0 To 255) As String
+    Dim i As Long
+    '
+    If nibbleMap(0) = 0 Then
+        For i = 0 To 255
+            nibbleMap(i) = -256 'To force invalid character code
+            charMap(i) = ChrW$(i)
+        Next i
+        For i = 0 To 9
+            nibbleMap(Asc(CStr(i))) = i
+        Next i
+        For i = 10 To 15
+            nibbleMap(i + 55) = i 'Asc("A") to Asc("F")
+            nibbleMap(i + 87) = i 'Asc("a") to Asc("f")
+        Next i
+    End If
+    '
+    DecodeURL = odWebPath 'Buffer
+    '
+    Dim b() As Byte:     b = odWebPath
+    Dim pathLen As Long: pathLen = Len(odWebPath)
+    Dim maxFind As Long: maxFind = pathLen * 2 - 4
+    Dim codeW As Integer
+    Dim j As Long
+    Dim diff As Long
+    Dim chunkLen As Long
+    '
+    i = InStrB(1, odWebPath, "%")
+    Do While i > 0 And i < maxFind
+        codeW = nibbleMap(b(i + 1)) * &H10& + nibbleMap(b(i + 3))
+        If codeW > 0 And b(i + 2) = 0 And b(i + 4) = 0 Then
+            If j > 0 Then
+                chunkLen = i - j
+                If chunkLen > 0 Then
+                    MidB$(DecodeURL, j - diff) = MidB$(odWebPath, j, chunkLen)
+                End If
+            End If
+            MidB$(DecodeURL, i - diff) = charMap(codeW)
+            i = i + 4
+            j = i + 2
+            diff = diff + 4
+        End If
+        i = InStrB(i + 2, odWebPath, "%")
+    Loop
+    If diff > 0 Then
+        chunkLen = pathLen * 2 + 1 - j
+        If chunkLen > 0 Then
+            MidB$(DecodeURL, j - diff) = MidB$(odWebPath, j, chunkLen)
+        End If
+        DecodeURL = Left$(DecodeURL, pathLen - diff / 2)
+    End If
+End Function
+
 '*******************************************************************************
 'Returns the local path for a OneDrive web path
 'Returns null string if the path provided is not a valid OneDrive web path
@@ -2073,7 +2128,7 @@ End Function
 'With the help of: @guwidoe (https://github.com/guwidoe)
 'See: https://github.com/cristianbuse/VBA-FileTools/issues/1
 '*******************************************************************************
-Private Function GetOneDriveLocalPath(ByRef odWebPath As String _
+Private Function GetOneDriveLocalPath(ByVal odWebPath As String _
                                     , ByVal rebuildCache As Boolean) As String
     If InStr(1, odWebPath, "https://", vbTextCompare) <> 1 Then Exit Function
     '
@@ -2082,6 +2137,7 @@ Private Function GetOneDriveLocalPath(ByRef odWebPath As String _
     Dim mainIndex As Long
     Dim i As Long
     '
+    If InStr(1, odWebPath, "%") > 0 Then odWebPath = DecodeURL(odWebPath)
     If rebuildCache Or Not m_providers.isSet Then ReadODProviders
     For i = 1 To m_providers.pCount
         With m_providers.arr(i)
