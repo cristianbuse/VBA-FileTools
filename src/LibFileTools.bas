@@ -2066,7 +2066,7 @@ Private Function AlignDriveNameIfNeeded(ByRef driveName As String _
 End Function
 #End If
 
-Private Function DecodeURL(ByRef odWebPath As String) As String
+Public Function DecodeURL(ByRef odWebPath As String) As String
     Static nibbleMap(0 To 255) As Long 'Nibble: 0 to F. Byte: 00 to FF
     Static charMap(0 To 255) As String
     Dim i As Long
@@ -2137,7 +2137,6 @@ Private Function GetOneDriveLocalPath(ByVal odWebPath As String _
     Dim mainIndex As Long
     Dim i As Long
     '
-    If InStr(1, odWebPath, "%") > 0 Then odWebPath = DecodeURL(odWebPath)
     If rebuildCache Or Not m_providers.isSet Then ReadODProviders
     For i = 1 To m_providers.pCount
         With m_providers.arr(i)
