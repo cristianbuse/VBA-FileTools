@@ -22,6 +22,7 @@ Public/Exposed methods:
  - CopyFile
  - CopyFolder
  - CreateFolder
+ - DecodeURL
  - DeleteFile
  - DeleteFolder
  - FixFileName
@@ -44,6 +45,8 @@ Public/Exposed methods:
  - MoveFolder
  - ParentFolder
  - ReadBytes
+ 
+ Please note that ```GetLocalPath(path)``` can handle only unencoded URL paths. For encoded paths use ```GetLocalPath(DecodeURL(path))```!
 
 ## Notes
 * No extra library references are needed (e.g. Microsoft Scripting Runtime)

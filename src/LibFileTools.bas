@@ -43,6 +43,7 @@ Attribute VB_Name = "LibFileTools"
 ''    - CopyFile
 ''    - CopyFolder
 ''    - CreateFolder
+''    - DecodeURL
 ''    - DeleteFile
 ''    - DeleteFolder
 ''    - FixFileName
@@ -1729,6 +1730,11 @@ End Sub
 'Returns the local drive path for a given path or null string if path not local
 'Note that the input path does not need to be an existing file/folder
 'Works with both UNC paths (Win) and OneDrive/SharePoint synchronized paths
+'
+'Important!
+'The expectation is that 'fullPath' is NOT URL encoded. If you have an encoded
+'   path (e.g. in Word, ActiveDocument.Path returns an encoded URL) then use
+'   GetLocalPath(DecodeURL(fullPath)...
 '*******************************************************************************
 Public Function GetLocalPath(ByRef fullPath As String _
                            , Optional ByVal rebuildCache As Boolean = False _
