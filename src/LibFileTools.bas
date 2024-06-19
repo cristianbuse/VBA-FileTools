@@ -3009,6 +3009,7 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
                 If b(j) > maxSigByte Then GoTo NextSig
             Next j
             If (b(j) <= maxSigByte) And (b(j - 1) < &H80) Then j = j - 1
+            If b(j) = 0 Then j = j - 1
             '
             nameSize = b(j)
             If nameSize Mod 2 = 0 Then GoTo NextSig
