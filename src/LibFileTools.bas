@@ -3408,4 +3408,6 @@ Private Sub CreateODDiagnosticsFile()
     Open filePath For Output As #fileNumber
     Print #fileNumber, res
     Close #fileNumber
+    '
+    MsgBox "Created [" & fileName & "] diagnostics file", vbInformation
 End Sub

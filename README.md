@@ -6,9 +6,10 @@ Supports **OneDrive/SharePoint/UNC** path conversion to **local** drive path (``
 
 ## Installation
 
-Just import the following code module in your VBA Project:
+Just import the following code module(s) in your VBA Project:
 
 * [**LibFileTools.bas**](src/LibFileTools.bas)
+* [**UDF_FileTools.bas**](src/UDF_FileTools.bas) (optional - works in MS Excel interface only, with exposed User Defined Functions)
 
 ## Usage
 
