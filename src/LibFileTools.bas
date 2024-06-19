@@ -3331,3 +3331,81 @@ Public Sub ReadBytes(ByRef filePath As String, ByRef result() As Byte)
     End If
     Close #fileNumber
 End Sub
+
+'*******************************************************************************
+'Creates a text file used for diagnosing OneDrive logic issues
+'*******************************************************************************
+Private Sub CreateODDiagnosticsFile()
+    Dim folderPath As String
+    Do
+        folderPath = BrowseForFolder(, "Choose target folder for diagnostics")
+        If LenB(folderPath) = 0 Then Exit Sub
+        If IsFolderEditable(folderPath) Then Exit Do
+        MsgBox "Please choose a folder with write access"
+    Loop
+    '
+    Const vbTwoNewLines As String = vbNewLine & vbNewLine
+    Const fileName As String = "DiagnosticsOD.txt"
+    Dim accountsInfo As ONEDRIVE_ACCOUNTS_INFO
+    Dim fileNumber As Long: fileNumber = FreeFile()
+    Dim filePath As String: filePath = BuildPath(folderPath, fileName)
+    Dim res As String
+    Dim i As Long
+    Dim temp(0 To 2) As String
+    '
+    #If Mac Then
+        temp(0) = "Mac"
+    #Else
+        temp(0) = "Win"
+    #End If
+    #If VBA7 Then
+        temp(1) = "VBA7"
+    #Else
+        temp(1) = "VBA6"
+    #End If
+    #If Win64 Then
+        temp(2) = "x64"
+    #Else
+        temp(2) = "x32"
+    #End If
+    res = Join(temp, " ") & vbTwoNewLines & String$(80, "-") & vbTwoNewLines
+    '
+    ReadODAccountsInfo accountsInfo
+    For i = 1 To accountsInfo.pCount 'Check for unsynchronized accounts
+        Dim j As Long
+        For j = i + 1 To accountsInfo.pCount
+            ValidateAccounts accountsInfo.arr(i), accountsInfo.arr(j)
+        Next j
+    Next i
+    res = res & "Accounts found: " & accountsInfo.pCount & vbTwoNewLines
+    '
+    For i = 1 To accountsInfo.pCount
+        With accountsInfo.arr(i)
+            res = res & "Name: " & .accountName & vbNewLine
+            res = res & "ID: " & .cID & vbNewLine
+            res = res & "Has DAT: " & .hasDatFile & vbNewLine
+            res = res & "Is Valid: " & .isValid & vbNewLine
+        End With
+        res = res & vbNewLine
+    Next i
+    res = res & String$(80, "-")
+    res = res & vbTwoNewLines
+    '
+    ReadODProviders
+    res = res & "Providers found: " & m_providers.pCount & vbTwoNewLines
+    For i = 1 To m_providers.pCount
+        With m_providers.arr(i)
+            res = res & "Base Mount: " & .baseMount & vbNewLine
+            res = res & "Is Business: " & .isBusiness & vbNewLine
+            res = res & "Is Main: " & .isMain & vbNewLine
+            res = res & "Mount Point: " & .mountPoint & vbNewLine
+            res = res & "Sync ID: " & .syncID & vbNewLine
+            res = res & "Web Path: " & .webPath & vbNewLine
+        End With
+        res = res & vbNewLine
+    Next i
+    '
+    Open filePath For Output As #fileNumber
+    Print #fileNumber, res
+    Close #fileNumber
+End Sub
