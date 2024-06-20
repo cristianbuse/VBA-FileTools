@@ -2700,6 +2700,7 @@ Private Function GetTagValue(ByRef filePath As String _
     Dim bytes() As Byte
     Dim fText As String
     Dim i As Long
+    Dim j As Long
     '
     On Error Resume Next
     ReadBytes filePath, bytes
@@ -2717,27 +2718,51 @@ Private Function GetTagValue(ByRef filePath As String _
     On Error GoTo 0
     '
     If Len(fText) = 0 Then Exit Function
-    i = InStr(1, fText, vTag) + Len(vTag)
-    GetTagValue = Mid$(fText, i, InStr(i, fText, vbNewLine) - i)
+    i = InStr(1, fText, vTag)
+    If i = 0 Then Exit Function
+    i = i + Len(vTag)
+    '
+    j = InStr(i + 1, fText, vbNewLine)
+    If j = 0 Then
+        GetTagValue = Mid$(fText, i)
+    Else
+        GetTagValue = Mid$(fText, i, j - i)
+    End If
 End Function
 
 '*******************************************************************************
 'Adds all providers for a Personal OneDrive account
 '*******************************************************************************
 Private Sub AddPersonalProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
-    Dim mainURL As String:    mainURL = GetUrlNamespace(aInfo.clientPath) & "/"
-    Dim libText As String:    libText = GetTagValue(aInfo.iniPath, "library = ")
-    Dim libParts() As String: libParts = Split(libText, """")
-    Dim mainMount As String:  mainMount = libParts(3)
-    Dim bytes() As Byte:      ReadBytes aInfo.groupPath, bytes
-    Dim groupText As String:  groupText = bytes
-    Dim syncID As String:     syncID = Split(libParts(4), " ")(2)
+    Dim mainURL As String
+    Dim libText As String
+    Dim libParts() As String
+    Dim mainMount As String
+    Dim bytes() As Byte
+    Dim groupText As String
+    Dim syncID As String
     Dim lineText As Variant
     Dim cID As String
     Dim i As Long
     Dim relPath As String
     Dim folderID As String
     Dim oDirs As DirsInfo
+    '
+    ReadBytes aInfo.groupPath, bytes
+    groupText = bytes
+    '
+    mainURL = GetUrlNamespace(aInfo.clientPath) & "/"
+    libText = GetTagValue(aInfo.iniPath, "library = ")
+    If LenB(libText) > 0 Then
+        libParts = Split(libText, """")
+        mainMount = libParts(3)
+        syncID = Split(libParts(4), " ")(2)
+    Else
+        libText = GetTagValue(aInfo.iniPath, "libraryScope = ")
+        libParts = Split(libText, """")
+        mainMount = libParts(9)
+        syncID = libParts(7)
+    End If
     '
     With m_providers.arr(AddProvider())
         .webPath = mainURL & aInfo.cID & "/"
