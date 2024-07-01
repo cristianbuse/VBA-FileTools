@@ -2952,6 +2952,7 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
     If size = 0 Then GoTo CloseFile
     '
     Const chunkSize As Long = &H100000 '1MB
+    Const minName As Long = 15
     Const maxSigByte As Byte = 9
     Const maxHeader As Long = 21
     Const minIDSize As Long = 12
@@ -3034,7 +3035,7 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
                 If b(j) > maxSigByte Then GoTo NextSig
             Next j
             If (b(j) <= maxSigByte) And (b(j - 1) < &H80) Then j = j - 1
-            If b(j) = 0 Then j = j - 1
+            If b(j) < minName Then j = j - 1
             '
             nameSize = b(j)
             If nameSize Mod 2 = 0 Then GoTo NextSig
