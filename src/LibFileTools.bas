@@ -3140,8 +3140,10 @@ NextSig:
         Loop
         If i = 0 Then
             lastRecord = lastRecord + chunkSize - leadingBuff
-        Else
+        ElseIf i > leadingBuff Then
             lastRecord = lastRecord + i - leadingBuff
+        Else
+            lastRecord = lastRecord + i
         End If
     Loop Until lastRecord > size
     ReDim Preserve outdirs.arrDirs(1 To outdirs.dirCount)
