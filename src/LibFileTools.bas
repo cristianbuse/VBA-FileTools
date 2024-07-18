@@ -2145,13 +2145,13 @@ Private Function GetOneDriveLocalPath(ByVal odWebPath As String _
     '
     If rebuildCache Or Not m_providers.isSet Then ReadODProviders
     For i = 1 To m_providers.pCount
-        With m_providers.arr(i)
-            If StrCompLeft(odWebPath, .webPath, vbTextCompare) = 0 Then
-                collMatches.Add i
-                If Not .isBusiness Then Exit For
-                If .isMain Then mainIndex = .accountIndex
+        If StrCompLeft(odWebPath, m_providers.arr(i).webPath, vbTextCompare) = 0 Then
+            collMatches.Add i
+            If Not m_providers.arr(i).isBusiness Then Exit For
+            If m_providers.arr(i).isMain Then
+                mainIndex = m_providers.arr(i).accountIndex
             End If
-        End With
+        End If
     Next i
     '
     Select Case collMatches.Count
