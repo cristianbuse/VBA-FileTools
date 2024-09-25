@@ -3044,6 +3044,7 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
                 nameSize = (b(j - 1) - &H80) * &H40 + nameSize
                 j = j - 1
             End If
+            If j < 5 Then GoTo NextSig
             If (nameSize < 1) Or (b(j - 4) = 0) Then GoTo NextSig
             '
             If isPersonal Then
