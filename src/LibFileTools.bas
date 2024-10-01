@@ -2791,13 +2791,13 @@ Private Sub AddPersonalProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
     mainURL = GetUrlNamespace(aInfo.clientPath) & "/"
     libText = GetTagValue(aInfo.iniPath, "library = ")
     If LenB(libText) > 0 Then
-        libParts = Split(libText, """")
-        mainMount = libParts(3)
-        syncID = Split(libParts(4), " ")(2)
+        libParts = SplitIniLine(libText)
+        mainMount = libParts(7)
+        syncID = libParts(9)
     Else
         libText = GetTagValue(aInfo.iniPath, "libraryScope = ")
-        libParts = Split(libText, """")
-        mainMount = libParts(9)
+        libParts = SplitIniLine(libText)
+        mainMount = libParts(12)
         syncID = libParts(7)
     End If
     '
