@@ -2547,7 +2547,6 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
     Dim bytes() As Byte:   ReadBytes aInfo.iniPath, bytes
     Dim iniText As String: iniText = bytes
     Dim lineText As Variant
-    Dim temp() As String
     Dim tempMount As String
     Dim mainMount As String
     Dim syncID As String
@@ -2596,29 +2595,27 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
     Next tempColl
     On Error GoTo 0
     For Each lineText In collSortedLines
-        Dim parts() As String: parts = Split(lineText, """")
-        Select Case Left$(lineText, InStr(1, lineText, " "))
-        Case "libraryScope "
-            tempMount = parts(9)
-            syncID = Split(parts(10), " ")(2)
+        Dim parts() As String: parts = SplitIniLine(lineText)
+        Select Case parts(0)
+        Case "libraryScope"
+            tempMount = parts(14)
+            syncID = parts(16)
             canAdd = (LenB(tempMount) > 0)
-            If Split(lineText, " ", 4, vbBinaryCompare)(2) = "0" Then
+            If parts(2) = "0" Then
                 mainMount = tempMount
                 mainSyncID = syncID
                 tempURL = GetUrlNamespace(aInfo.clientPath)
             Else
-                temp = Split(parts(8), " ")
-                cSignature = "_" & temp(3) & temp(1)
+                cSignature = "_" & parts(12) & parts(10)
                 tempURL = GetUrlNamespace(aInfo.clientPath, cSignature)
             End If
-            cPending.Add tempURL, Split(parts(0), " ")(2)
-        Case "libraryFolder "
+            cPending.Add tempURL, parts(2)
+        Case "libraryFolder"
             If oDirs.dirCount = 0 Then ReadODDirs aInfo, oDirs
-            tempMount = parts(1)
-            temp = Split(parts(0), " ")
-            tempURL = cPending(temp(3))
-            syncID = Split(parts(4), " ")(1)
-            Dim tempID As String:     tempID = temp(4)
+            tempMount = parts(6)
+            tempURL = cPending(parts(3))
+            syncID = parts(9)
+            Dim tempID As String:     tempID = parts(4)
             Dim tempFolder As String: tempFolder = vbNullString
             If aInfo.hasDatFile Then tempID = Split(tempID, "+")(0)
             On Error Resume Next
@@ -2633,10 +2630,10 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             On Error GoTo 0
             canAdd = (LenB(tempFolder) > 0)
             tempURL = tempURL & tempFolder
-        Case "AddedScope "
+        Case "AddedScope"
             If LenB(mainMount) = 0 Then Err.Raise vbErrInvalidFormatInResourceFile
             If oDirs.dirCount = 0 Then ReadODDirs aInfo, oDirs
-            tempID = Split(parts(0), " ")(3)
+            tempID = parts(3)
             tempFolder = vbNullString
             On Error Resume Next
             Do
@@ -2650,14 +2647,13 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             On Error GoTo 0
             tempMount = mainMount & PATH_SEPARATOR & tempFolder
             syncID = mainSyncID
-            tempURL = parts(5)
+            tempURL = parts(11)
             If tempURL = " " Or LenB(tempURL) = 0 Then
                 tempURL = vbNullString
             Else
                 tempURL = tempURL & "/"
             End If
-            temp = Split(parts(4), " ")
-            cSignature = "_" & temp(3) & temp(1) & temp(4)
+            cSignature = "_" & parts(9) & parts(7) & parts(10)
             tempURL = GetUrlNamespace(aInfo.clientPath, cSignature) & tempURL
             canAdd = True
         Case Else
@@ -2680,6 +2676,42 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
         End If
     Next lineText
 End Sub
+
+'*******************************************************************************
+'Splits a cid.ini file into space delimited parts
+'*******************************************************************************
+Private Function SplitIniLine(ByVal lineText As String) As String()
+    Dim i As Long
+    Dim j As Long
+    Dim k As Long
+    Dim res() As String: ReDim res(0 To 20)
+    Dim v As Variant
+    Dim s As String
+    Dim c As Long: c = Len(lineText)
+    '
+    i = InStr(1, lineText, " ")
+    res(0) = Left$(lineText, i - 1)
+    Do
+        Do
+            i = i + 1
+            s = Mid$(lineText, i, 1)
+        Loop Until s <> " "
+        If i > c Then Exit Do
+        If s = """" Then
+            i = i + 1
+            j = InStr(i, lineText, """")
+        Else
+            j = InStr(i + 1, lineText, " ")
+        End If
+        If j = 0 Then j = c + 1
+        k = k + 1
+        If k > UBound(res) Then ReDim Preserve res(0 To k)
+        res(k) = Mid$(lineText, i, j - i)
+        i = j
+    Loop Until j > c
+    ReDim Preserve res(0 To k)
+    SplitIniLine = res
+End Function
 
 '*******************************************************************************
 'Returns the URLNamespace from a provider's ClientPolicy*.ini file
