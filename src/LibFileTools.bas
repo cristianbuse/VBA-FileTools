@@ -2961,7 +2961,9 @@ Private Sub ReadDirsFromDat(ByRef filePath As String, ByRef outdirs As DirsInfo)
         Loop Until lastRecord > size
         If outdirs.dirCount > 0 Then Exit For
     Next stepSize
-    ReDim Preserve outdirs.arrDirs(1 To outdirs.dirCount)
+    If outdirs.dirCount > 0 Then
+        ReDim Preserve outdirs.arrDirs(1 To outdirs.dirCount)
+    End If
 CloseFile:
     Close #fileNumber
 End Sub
