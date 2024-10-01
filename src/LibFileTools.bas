@@ -400,6 +400,9 @@ Private Type ONEDRIVE_PROVIDER
     accountIndex As Long
     baseMount As String
     syncID As String
+    #If Mac Then
+        syncDir As String
+    #End If
 End Type
 Private Type ONEDRIVE_PROVIDERS
     arr() As ONEDRIVE_PROVIDER
@@ -2346,10 +2349,8 @@ Private Sub ReadODProviders()
             For i = 1 To m_providers.pCount
                 With m_providers.arr(i)
                     On Error Resume Next
-                    Dim syncDir As String: syncDir = collSyncIDToDir(.syncID)
-                    If Err.Number = 0 Then
-                        .mountPoint = Replace(.mountPoint, .baseMount, syncDir)
-                    End If
+                    .syncDir = collSyncIDToDir(.syncID)
+                    .mountPoint = Replace(.mountPoint, .baseMount, .syncDir)
                     On Error GoTo 0
                 End With
             Next i
@@ -3466,6 +3467,9 @@ Private Sub CreateODDiagnosticsFile()
             res = res & "Mount Point: " & .mountPoint & vbNewLine
             res = res & "Sync ID: " & .syncID & vbNewLine
             res = res & "Web Path: " & .webPath & vbNewLine
+            #If Mac Then
+                res = res & "Sync Dir: " & .syncDir & vbNewLine
+            #End If
         End With
         res = res & vbNewLine
     Next i
