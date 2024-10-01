@@ -2345,8 +2345,12 @@ Private Sub ReadODProviders()
         If collSyncIDToDir.Count > 0 Then 'Replace sandbox paths
             For i = 1 To m_providers.pCount
                 With m_providers.arr(i)
+                    On Error Resume Next
                     Dim syncDir As String: syncDir = collSyncIDToDir(.syncID)
-                    .mountPoint = Replace(.mountPoint, .baseMount, syncDir)
+                    If Err.Number = 0 Then
+                        .mountPoint = Replace(.mountPoint, .baseMount, syncDir)
+                    End If
+                    On Error GoTo 0
                 End With
             Next i
         End If
