@@ -1791,12 +1791,15 @@ Public Function GetRelativePath(ByRef fullPath As String _
     Dim rParent As String
     Dim prevPos As Long
     Dim currPos As Long
+    Dim rcurrPos As Long
     Dim diff As Long
     Dim isRFile As Boolean
     '
     Do
         prevPos = currPos
         currPos = InStr(currPos + 1, fPath, ps)
+        rcurrPos = InStr(prevPos + 1, rPath, ps)
+	    If currPos <> rcurrPos Then Exit Do
         diff = currPos - prevPos - 1
         If diff > 0 Then
             fParent = Mid$(fPath, prevPos + 1, diff)
