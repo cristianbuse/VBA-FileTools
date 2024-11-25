@@ -408,6 +408,7 @@ Private Type ONEDRIVE_PROVIDERS
     arr() As ONEDRIVE_PROVIDER
     pCount As Long
     isSet As Boolean
+    lastCacheUpdate As Date
 End Type
 
 Private Type ONEDRIVE_ACCOUNT_INFO
@@ -2147,7 +2148,7 @@ Private Function GetOneDriveLocalPath(ByVal odWebPath As String _
     Dim mainIndex As Long
     Dim i As Long
     '
-    If rebuildCache Or Not m_providers.isSet Then ReadODProviders
+    ReadODProviders rebuildCache
     For i = 1 To m_providers.pCount
         If StrCompLeft(odWebPath, m_providers.arr(i).webPath, vbTextCompare) = 0 Then
             collMatches.Add i
@@ -2233,7 +2234,7 @@ Private Function GetOneDriveWebPath(ByRef odLocalPath As String _
     Dim i As Long
     Dim fixedPath As String: fixedPath = FixPathSeparators(odLocalPath)
     '
-    If rebuildCache Or Not m_providers.isSet Then ReadODProviders
+    ReadODProviders rebuildCache
     For i = 1 To m_providers.pCount
         localPath = m_providers.arr(i).mountPoint
         If StrCompLeft(fixedPath, localPath, vbTextCompare) = 0 Then
@@ -2257,9 +2258,27 @@ End Function
 'Populates the OneDrive providers in the 'm_providers' structure
 'Utility for 'GetOneDriveLocalPath' and 'GetOneDriveWebPath'
 '*******************************************************************************
-Private Sub ReadODProviders()
+Private Sub ReadODProviders(ByVal rebuildCache As Boolean)
     Dim i As Long
     Dim accountsInfo As ONEDRIVE_ACCOUNTS_INFO
+    Dim fileName As String
+    Static collTrackedFiles As Collection
+    Const oneSecond As Date = 1 / 86400
+    '
+    If Not rebuildCache And m_providers.isSet Then
+        If m_providers.lastCacheUpdate + oneSecond > Now() Then Exit Sub
+        Dim v As Variant
+        For Each v In collTrackedFiles
+            If FileDateTime(v) > m_providers.lastCacheUpdate Then
+                rebuildCache = True
+                Exit For
+            End If
+        Next v
+        If Not rebuildCache Then
+            m_providers.lastCacheUpdate = Now()
+            Exit Sub
+        End If
+    End If
     '
     m_providers.pCount = 0
     m_providers.isSet = False
@@ -2269,7 +2288,6 @@ Private Sub ReadODProviders()
     '
     #If Mac Then 'Grant access to all needed files/folders, in batch
         Dim collFiles As New Collection
-        Dim fileName As String
         '
         For i = 1 To accountsInfo.pCount
             With accountsInfo.arr(i)
@@ -2336,14 +2354,31 @@ Private Sub ReadODProviders()
             ValidateAccounts accountsInfo.arr(i), accountsInfo.arr(j)
         Next j
     Next i
+    Set collTrackedFiles = New Collection
     For i = 1 To accountsInfo.pCount
-        If accountsInfo.arr(i).isValid Then
-            If accountsInfo.arr(i).isPersonal Then
-                AddPersonalProviders accountsInfo.arr(i)
-            Else
-                AddBusinessProviders accountsInfo.arr(i)
+        With accountsInfo.arr(i)
+            If .isValid Then
+                If .isPersonal Then
+                    AddPersonalProviders accountsInfo.arr(i)
+                    collTrackedFiles.Add .groupPath
+                Else
+                    AddBusinessProviders accountsInfo.arr(i)
+                    fileName = Dir(Replace(.clientPath, ".ini", "_*.ini"))
+                    Do While LenB(fileName) > 0
+                        collTrackedFiles.Add .folderPath & "/" & fileName
+                        fileName = Dir
+                    Loop
+                End If
+                If .hasDatFile Then
+                    collTrackedFiles.Add .datPath
+                Else
+                    collTrackedFiles.Add .dbPath
+                End If
+                collTrackedFiles.Add .clientPath
+                collTrackedFiles.Add .globalPath
+                collTrackedFiles.Add .iniPath
             End If
-        End If
+        End With
     Next i
     #If Mac Then
         If collSyncIDToDir.Count > 0 Then 'Replace sandbox paths
@@ -2358,6 +2393,7 @@ Private Sub ReadODProviders()
         End If
     #End If
     m_providers.isSet = True
+    m_providers.lastCacheUpdate = Now()
 #If Mac Then
     ClearConversionDescriptors
 #End If
@@ -3460,7 +3496,7 @@ Private Sub CreateODDiagnosticsFile()
     res = res & String$(80, "-")
     res = res & vbTwoNewLines
     '
-    ReadODProviders
+    ReadODProviders True
     res = res & "Providers found: " & m_providers.pCount & vbTwoNewLines
     For i = 1 To m_providers.pCount
         With m_providers.arr(i)
