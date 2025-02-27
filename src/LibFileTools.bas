@@ -2268,12 +2268,15 @@ Private Sub ReadODProviders(ByVal rebuildCache As Boolean)
     If Not rebuildCache And m_providers.isSet Then
         If m_providers.lastCacheUpdate + oneSecond > Now() Then Exit Sub
         Dim v As Variant
+        On Error Resume Next
         For Each v In collTrackedFiles
-            If FileDateTime(v) > m_providers.lastCacheUpdate Then
+            If FileDateTime(v) > m_providers.lastCacheUpdate _
+            Or Err.Number <> 0 Then
                 rebuildCache = True
                 Exit For
             End If
         Next v
+        On Error GoTo 0
         If Not rebuildCache Then
             m_providers.lastCacheUpdate = Now()
             Exit Sub
