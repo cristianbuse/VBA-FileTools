@@ -633,8 +633,8 @@ Public Function BrowseForFolder(Optional ByRef initialPath As String _
     'If user has not accesss [initialPath] previously, will be prompted by
     'Mac OS to Grant permission to directory
     If LenB(initialPath) > 0 Then
-        If Not Right(initialPath, 1) = Application.PathSeparator Then
-            initialPath = initialPath & Application.PathSeparator
+        If Not Right(initialPath, 1) = PATH_SEPARATOR Then
+            initialPath = initialPath & PATH_SEPARATOR
         End If
         Dir initialPath, Attributes:=vbDirectory
     End If
@@ -654,10 +654,10 @@ Public Function BrowseForFolder(Optional ByRef initialPath As String _
     '
     With Application.FileDialog(dialogTypeFolderPicker)
         If LenB(dialogTitle) > 0 Then .Title = dialogTitle
-        If LenB(initialPath) > 0 Then .InitialFileName = initialPath
+        If LenB(initialPath) > 0 Then .InitialFileName = BuildPath(initialPath, PATH_SEPARATOR)
         If LenB(.InitialFileName) = 0 Then
             Dim app As Object: Set app = Application 'Needs to be late-binded
-            Select Case Application.Name
+            Select Case app.Name
                 Case "Microsoft Excel": .InitialFileName = GetLocalPath(app.ThisWorkbook.Path, , True)
                 Case "Microsoft Word":  .InitialFileName = GetLocalPath(app.ThisDocument.Path, , True)
             End Select
