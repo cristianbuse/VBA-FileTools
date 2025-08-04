@@ -556,7 +556,7 @@ Private Function BrowseFilesAPI(ByRef initialPath As String _
         .lpstrFilter = StrPtr(buffFilter)
         '
         .nMaxFile = &H100000
-        buffFiles = VBA.Space$(.nMaxFile)
+        buffFiles = Space$(.nMaxFile)
         .lpstrFile = StrPtr(buffFiles)
         .lpstrInitialDir = StrPtr(initialPath)
         .lpstrTitle = StrPtr(dialogTitle)
@@ -611,7 +611,7 @@ Private Function BrowseFilesAPI(ByRef initialPath As String _
                     For i = 2 To 0 Step -1
                         .nMaxFile = .nMaxFile * &H100& + b(i)
                     Next i
-                    buffFiles = VBA.Space$(.nMaxFile)
+                    buffFiles = Space$(.nMaxFile)
                     .lpstrFile = StrPtr(buffFiles)
                 End With
                 MsgBox "Did not expect so many files. Please select again!" _
@@ -3226,7 +3226,9 @@ NextSig:
             lastRecord = lastRecord + i
         End If
     Loop Until lastRecord > size
-    ReDim Preserve outdirs.arrDirs(1 To outdirs.dirCount)
+    If outdirs.dirCount > 0 Then
+        ReDim Preserve outdirs.arrDirs(1 To outdirs.dirCount)
+    End If
 CloseFile:
     Close #fileNumber
 End Sub
