@@ -67,7 +67,7 @@ Public Function IS_FILE(ByRef filePaths As Variant) As Variant
     '
     'Only accept 1-Area Ranges. This could alternatively be changed to ignore
     '   the extra Areas by arr = arr.Areas(1).Value2 instead of the 2 lines
-    If VBA.TypeName(filePaths) = "Range" Then
+    If TypeName(filePaths) = "Range" Then
         If filePaths.Areas.Count > 1 Then GoTo FailInput
         filePaths = filePaths.Value2
     End If
@@ -104,7 +104,7 @@ Public Function IS_FILE(ByRef filePaths As Variant) As Variant
 Exit Function
 ErrorHandler:
 FailInput:
-    IS_FILE = VBA.CVErr(xlErrValue)
+    IS_FILE = CVErr(xlErrValue)
 End Function
 
 Public Function IS_FOLDER(ByRef folderPaths As Variant) As Variant
@@ -115,7 +115,7 @@ Public Function IS_FOLDER(ByRef folderPaths As Variant) As Variant
     '
     'Only accept 1-Area Ranges. This could alternatively be changed to ignore
     '   the extra Areas by arr = arr.Areas(1).Value2 instead of the 2 lines
-    If VBA.TypeName(folderPaths) = "Range" Then
+    If TypeName(folderPaths) = "Range" Then
         If folderPaths.Areas.Count > 1 Then GoTo FailInput
         folderPaths = folderPaths.Value2
     End If
@@ -152,7 +152,7 @@ Public Function IS_FOLDER(ByRef folderPaths As Variant) As Variant
 Exit Function
 ErrorHandler:
 FailInput:
-    IS_FOLDER = VBA.CVErr(xlErrValue)
+    IS_FOLDER = CVErr(xlErrValue)
 End Function
 
 Public Function LOCAL_PATH(ByRef fullPaths As Variant) As Variant
@@ -163,7 +163,7 @@ Public Function LOCAL_PATH(ByRef fullPaths As Variant) As Variant
     '
     'Only accept 1-Area Ranges. This could alternatively be changed to ignore
     '   the extra Areas by arr = arr.Areas(1).Value2 instead of the 2 lines
-    If VBA.TypeName(fullPaths) = "Range" Then
+    If TypeName(fullPaths) = "Range" Then
         If fullPaths.Areas.Count > 1 Then GoTo FailInput
         fullPaths = fullPaths.Value2
     End If
@@ -200,7 +200,7 @@ Public Function LOCAL_PATH(ByRef fullPaths As Variant) As Variant
 Exit Function
 ErrorHandler:
 FailInput:
-    LOCAL_PATH = VBA.CVErr(xlErrValue)
+    LOCAL_PATH = CVErr(xlErrValue)
 End Function
 
 Public Function REMOTE_PATH(ByRef fullPaths As Variant) As Variant
@@ -211,7 +211,7 @@ Public Function REMOTE_PATH(ByRef fullPaths As Variant) As Variant
     '
     'Only accept 1-Area Ranges. This could alternatively be changed to ignore
     '   the extra Areas by arr = arr.Areas(1).Value2 instead of the 2 lines
-    If VBA.TypeName(fullPaths) = "Range" Then
+    If TypeName(fullPaths) = "Range" Then
         If fullPaths.Areas.Count > 1 Then GoTo FailInput
         fullPaths = fullPaths.Value2
     End If
@@ -248,7 +248,7 @@ Public Function REMOTE_PATH(ByRef fullPaths As Variant) As Variant
 Exit Function
 ErrorHandler:
 FailInput:
-    REMOTE_PATH = VBA.CVErr(xlErrValue)
+    REMOTE_PATH = CVErr(xlErrValue)
 End Function
 
 '*******************************************************************************

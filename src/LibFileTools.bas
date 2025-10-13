@@ -661,6 +661,8 @@ Public Function BrowseForFolder(Optional ByRef initialPath As String _
                 Case "Microsoft Excel": .InitialFileName = GetLocalPath(app.ThisWorkbook.Path, , True)
                 Case "Microsoft Word":  .InitialFileName = GetLocalPath(app.ThisDocument.Path, , True)
             End Select
+        Else
+            .InitialFileName = BuildPath(.InitialFileName, PATH_SEPARATOR)
         End If
         If .Show = actionButton Then
             .InitialFileName = .SelectedItems.Item(1)
