@@ -155,7 +155,8 @@ FailInput:
     IS_FOLDER = CVErr(xlErrValue)
 End Function
 
-Public Function LOCAL_PATH(ByRef fullPaths As Variant) As Variant
+Public Function LOCAL_PATH(ByRef fullPaths As Variant _
+                         , Optional ByVal returnInputOnFail As Boolean = False) As Variant
     Application.Volatile False
     #If USE_LIB_FAST_UDFS Then
         LibUDFs.TriggerFastUDFCalculation
@@ -170,7 +171,8 @@ Public Function LOCAL_PATH(ByRef fullPaths As Variant) As Variant
     '
     On Error GoTo ErrorHandler
     If Not IsArray(fullPaths) Then
-        LOCAL_PATH = LibFileTools.GetLocalPath(CStr(fullPaths))
+        LOCAL_PATH = LibFileTools.GetLocalPath(CStr(fullPaths), , returnInputOnFail)
+        If LenB(LOCAL_PATH) = 0 Then LOCAL_PATH = CVErr(xlErrNA)
         Exit Function
     End If
     '
@@ -182,14 +184,16 @@ Public Function LOCAL_PATH(ByRef fullPaths As Variant) As Variant
     Case 1
         ReDim res(LBound(fullPaths) To UBound(fullPaths))
         For i = LBound(fullPaths) To UBound(fullPaths)
-            res(i) = LibFileTools.GetLocalPath(CStr(fullPaths(i)))
+            res(i) = LibFileTools.GetLocalPath(CStr(fullPaths(i)), , returnInputOnFail)
+            If LenB(res(i)) = 0 Then res(i) = CVErr(xlErrNA)
         Next i
     Case 2
         ReDim res(LBound(fullPaths, 1) To UBound(fullPaths, 1) _
                 , LBound(fullPaths, 2) To UBound(fullPaths, 2))
         For i = LBound(fullPaths, 1) To UBound(fullPaths, 1)
             For j = LBound(fullPaths, 2) To UBound(fullPaths, 2)
-                res(i, j) = LibFileTools.GetLocalPath(CStr(fullPaths(i, j)))
+                res(i, j) = LibFileTools.GetLocalPath(CStr(fullPaths(i, j)), , returnInputOnFail)
+                If LenB(res(i, j)) = 0 Then res(i, j) = CVErr(xlErrNA)
             Next j
         Next i
     Case Else
@@ -203,7 +207,8 @@ FailInput:
     LOCAL_PATH = CVErr(xlErrValue)
 End Function
 
-Public Function REMOTE_PATH(ByRef fullPaths As Variant) As Variant
+Public Function REMOTE_PATH(ByRef fullPaths As Variant _
+                          , Optional ByVal returnInputOnFail As Boolean = False) As Variant
     Application.Volatile False
     #If USE_LIB_FAST_UDFS Then
         LibUDFs.TriggerFastUDFCalculation
@@ -218,7 +223,8 @@ Public Function REMOTE_PATH(ByRef fullPaths As Variant) As Variant
     '
     On Error GoTo ErrorHandler
     If Not IsArray(fullPaths) Then
-        REMOTE_PATH = LibFileTools.GetRemotePath(CStr(fullPaths))
+        REMOTE_PATH = LibFileTools.GetRemotePath(CStr(fullPaths), , returnInputOnFail)
+        If LenB(REMOTE_PATH) = 0 Then REMOTE_PATH = CVErr(xlErrNA)
         Exit Function
     End If
     '
@@ -230,14 +236,16 @@ Public Function REMOTE_PATH(ByRef fullPaths As Variant) As Variant
     Case 1
         ReDim res(LBound(fullPaths) To UBound(fullPaths))
         For i = LBound(fullPaths) To UBound(fullPaths)
-            res(i) = LibFileTools.GetRemotePath(CStr(fullPaths(i)))
+            res(i) = LibFileTools.GetRemotePath(CStr(fullPaths(i)), , returnInputOnFail)
+            If LenB(res(i)) = 0 Then res(i) = CVErr(xlErrNA)
         Next i
     Case 2
         ReDim res(LBound(fullPaths, 1) To UBound(fullPaths, 1) _
                 , LBound(fullPaths, 2) To UBound(fullPaths, 2))
         For i = LBound(fullPaths, 1) To UBound(fullPaths, 1)
             For j = LBound(fullPaths, 2) To UBound(fullPaths, 2)
-                res(i, j) = LibFileTools.GetRemotePath(CStr(fullPaths(i, j)))
+                res(i, j) = LibFileTools.GetRemotePath(CStr(fullPaths(i, j)), , returnInputOnFail)
+                If LenB(res(i, j)) = 0 Then res(i, j) = CVErr(xlErrNA)
             Next j
         Next i
     Case Else
