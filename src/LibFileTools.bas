@@ -2655,6 +2655,10 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             Else
                 cSignature = "_" & parts(12) & parts(10)
                 tempURL = GetUrlNamespace(aInfo.clientPath, cSignature)
+                If LenB(tempURL) = 0 Then
+                    cSignature = "_" & parts(12) & "_" & parts(10)
+                    tempURL = GetUrlNamespace(aInfo.clientPath, cSignature)
+                End If
             End If
             cPending.Add tempURL, parts(2)
         Case "libraryFolder"
