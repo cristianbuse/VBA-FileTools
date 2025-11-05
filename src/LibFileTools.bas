@@ -2611,6 +2611,7 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
     Dim collSortedLines As New Collection
     Dim i As Long, j As Long
     Dim targetCount As Long
+    Dim tempNamespace As String
     '
     #If Mac Then
         iniText = ConvertText(iniText, codeUTF16LE, codeUTF8, True)
@@ -2705,7 +2706,12 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
                 tempURL = tempURL & "/"
             End If
             cSignature = "_" & parts(9) & parts(7) & parts(10)
-            tempURL = GetUrlNamespace(aInfo.clientPath, cSignature) & tempURL
+            tempNamespace = GetUrlNamespace(aInfo.clientPath, cSignature)
+            If LenB(tempNamespace) = 0 Then
+                cSignature = "_" & parts(9) & "_" & parts(7) & "_" & parts(10)
+                tempNamespace = GetUrlNamespace(aInfo.clientPath, cSignature)
+            End If
+            tempURL = tempNamespace & tempURL
             canAdd = True
         Case Else
             Exit For
