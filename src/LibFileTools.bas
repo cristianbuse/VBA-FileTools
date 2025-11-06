@@ -54,6 +54,7 @@ Attribute VB_Name = "LibFileTools"
 ''    - GetKnownFolderCLSID      (Windows only)
 ''    - GetKnownFolderPath       (Windows only)
 ''    - GetLocalPath
+''    - GetMainBusinessURLs
 ''    - GetRelativePath
 ''    - GetRemotePath
 ''    - GetSpecialFolderConstant (Mac only)
@@ -3536,3 +3537,19 @@ Private Sub CreateODDiagnosticsFile()
     '
     MsgBox "Created [" & fileName & "] diagnostics file", vbInformation
 End Sub
+
+'*******************************************************************************
+'Returns a colection of web paths for the main provider of each business account
+'*******************************************************************************
+Public Function GetMainBusinessURLs() As Collection
+    Dim i As Long
+    Dim res As New Collection
+    '
+    ReadODProviders False
+    For i = 1 To m_providers.pCount
+        If m_providers.arr(i).isBusiness And m_providers.arr(i).isMain Then
+            res.Add m_providers.arr(i).webPath
+        End If
+    Next i
+    Set GetMainBusinessURLs = res
+End Function

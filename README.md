@@ -34,6 +34,7 @@ Public/Exposed methods:
  - GetKnownFolderCLSID      (Windows only)
  - GetKnownFolderPath       (Windows only)
  - GetLocalPath             (covers UNC/OneDrive/SharePoint paths)
+ - GetMainBusinessURLs
  - GetRelativePath
  - GetRemotePath            (covers UNC/OneDrive/SharePoint paths)
  - GetSpecialFolderConstant (Mac only)
