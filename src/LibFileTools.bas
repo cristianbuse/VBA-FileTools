@@ -2490,7 +2490,7 @@ Private Sub ReadODAccountsInfo(ByRef accountsInfo As ONEDRIVE_ACCOUNTS_INFO)
                 .accountIndex = CLng(Right$(.accountName, 1))
             End If
             .globalPath = .folderPath & ps & "global.ini"
-            .cID = GetTagValue(.globalPath, "cid = ")
+            .cID = GetTagValue(GetIniText(.globalPath), "cid = ")
             .iniPath = .folderPath & ps & .cID & ".ini"
             #If Mac Then 'Avoid Mac File Access Request
                 hasIniFile = (Dir(.iniPath & "*") = .cID & ".ini")
@@ -2592,8 +2592,7 @@ End Function
 'Adds all providers for a Business OneDrive account
 '*******************************************************************************
 Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
-    Dim bytes() As Byte:   ReadBytes aInfo.iniPath, bytes
-    Dim iniText As String: iniText = bytes
+    Dim iniText As String
     Dim lineText As Variant
     Dim tempMount As String
     Dim mainMount As String
@@ -2613,10 +2612,9 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
     Dim i As Long, j As Long
     Dim targetCount As Long
     Dim tempNamespace As String
+    Dim collUrlNamespace As Collection
     '
-    #If Mac Then
-        iniText = ConvertText(iniText, codeUTF16LE, codeUTF8, True)
-    #End If
+    iniText = GetIniText(aInfo.iniPath)
     arrTags = Array("libraryScope", "libraryFolder", "AddedScope")
     For Each vTag In arrTags
         collTags.Add New Collection, vTag
@@ -2660,6 +2658,13 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
                 If LenB(tempURL) = 0 Then
                     cSignature = "_" & parts(12) & "_" & parts(10)
                     tempURL = GetUrlNamespace(aInfo.clientPath, cSignature)
+                    If LenB(tempURL) = 0 Then
+                        If collUrlNamespace Is Nothing Then
+                            Set collUrlNamespace = ReadNamespaces(aInfo)
+                        End If
+                        tempURL = collUrlNamespace("{" & parts(12) & "}{" & parts(10) _
+                                                 & "}{" & parts(11) & "}")
+                    End If
                 End If
             End If
             cPending.Add tempURL, parts(2)
@@ -2711,6 +2716,13 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             If LenB(tempNamespace) = 0 Then
                 cSignature = "_" & parts(9) & "_" & parts(7)
                 tempNamespace = GetUrlNamespace(aInfo.clientPath, cSignature)
+                If LenB(tempURL) = 0 Then
+                    If collUrlNamespace Is Nothing Then
+                        Set collUrlNamespace = ReadNamespaces(aInfo)
+                    End If
+                    tempURL = collUrlNamespace("{" & parts(9) & "}{" & parts(7) _
+                                             & "}{" & parts(10) & "}")
+                End If
             End If
             tempURL = tempNamespace & tempURL
             canAdd = True
@@ -2779,45 +2791,76 @@ Private Function GetUrlNamespace(ByRef clientPath As String _
     Dim cPath As String
     '
     cPath = Left$(clientPath, Len(clientPath) - 4) & cSignature & ".ini"
-    GetUrlNamespace = GetTagValue(cPath, "DavUrlNamespace = ")
+    GetUrlNamespace = GetTagValue(GetIniText(cPath), "DavUrlNamespace = ")
 End Function
 
 '*******************************************************************************
 'Returns the required value from an ini file text line based on given tag
 '*******************************************************************************
-Private Function GetTagValue(ByRef filePath As String _
+Private Function GetTagValue(ByRef iniText As String _
                            , ByRef vTag As String) As String
-    Dim bytes() As Byte
-    Dim fText As String
     Dim i As Long
     Dim j As Long
     '
+    If Len(iniText) = 0 Then Exit Function
+    i = InStr(1, iniText, vTag)
+    If i = 0 Then Exit Function
+    i = i + Len(vTag)
+    '
+    j = InStr(i + 1, iniText, vbNewLine)
+    If j = 0 Then
+        GetTagValue = Mid$(iniText, i)
+    Else
+        GetTagValue = Mid$(iniText, i, j - i)
+    End If
+End Function
+
+'*******************************************************************************
+'Returns the contents of an OD ini file as UTF16LE
+'*******************************************************************************
+Private Function GetIniText(ByRef filePath As String) As String
+    Dim bytes() As Byte: ReadBytes filePath, bytes
+    '
     On Error Resume Next
-    ReadBytes filePath, bytes
-    fText = bytes
+    GetIniText = bytes
     #If Mac Then
         If Err.Number = 0 Then
-            fText = ConvertText(fText, codeUTF16LE, codeUTF8, True)
+            GetIniText = ConvertText(GetIniText, codeUTF16LE, codeUTF8, True)
         Else 'Open failed, try AppleScript with no text conversion needed
             Dim tempPath As String
             tempPath = MacScript("return path to startup disk as string") _
                      & Replace(Mid$(filePath, 2), PATH_SEPARATOR, ":")
-            fText = MacScript("return read file """ & tempPath & """ as string")
+            GetIniText = MacScript("return read file """ & tempPath & """ as string")
         End If
     #End If
     On Error GoTo 0
+End Function
+
+'*******************************************************************************
+'Reads DavUrlNamespace(s) from all ClientPolicy files within an account
+'*******************************************************************************
+Private Function ReadNamespaces(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO) As Collection
+    Dim fileName As String: fileName = Dir(Replace(aInfo.clientPath, ".ini", "_*.ini"))
+    Dim collFiles As New Collection
+    Dim collRes As New Collection
+    Dim v As Variant
+    Dim iniText As String
+    Dim k As String
     '
-    If Len(fText) = 0 Then Exit Function
-    i = InStr(1, fText, vTag)
-    If i = 0 Then Exit Function
-    i = i + Len(vTag)
+    Do While LenB(fileName) > 0
+        collFiles.Add aInfo.folderPath & "/" & fileName
+        fileName = Dir
+    Loop
     '
-    j = InStr(i + 1, fText, vbNewLine)
-    If j = 0 Then
-        GetTagValue = Mid$(fText, i)
-    Else
-        GetTagValue = Mid$(fText, i, j - i)
-    End If
+    For Each v In collFiles
+        iniText = GetIniText(CStr(v))
+        k = GetTagValue(iniText, "IrmLibraryId = ") _
+          & GetTagValue(iniText, "SiteID = ") _
+          & GetTagValue(iniText, "WebID = ")
+        Debug.Print k
+        collRes.Add GetTagValue(iniText, "DavUrlNamespace = "), Replace(k, "-", "")
+    Next v
+    Set ReadNamespaces = collRes
 End Function
 
 '*******************************************************************************
@@ -2828,7 +2871,6 @@ Private Sub AddPersonalProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
     Dim libText As String
     Dim libParts() As String
     Dim mainMount As String
-    Dim bytes() As Byte
     Dim groupText As String
     Dim syncID As String
     Dim lineText As Variant
@@ -2837,18 +2879,19 @@ Private Sub AddPersonalProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
     Dim relPath As String
     Dim folderID As String
     Dim oDirs As DirsInfo
+    Dim iniText As String
     '
-    ReadBytes aInfo.groupPath, bytes
-    groupText = bytes
+    groupText = GetIniText(aInfo.groupPath)
+    iniText = GetIniText(aInfo.iniPath)
     '
     mainURL = GetUrlNamespace(aInfo.clientPath) & "/"
-    libText = GetTagValue(aInfo.iniPath, "library = ")
+    libText = GetTagValue(iniText, "library = ")
     If LenB(libText) > 0 Then
         libParts = SplitIniLine(libText)
         mainMount = libParts(7)
         syncID = libParts(9)
     Else
-        libText = GetTagValue(aInfo.iniPath, "libraryScope = ")
+        libText = GetTagValue(iniText, "libraryScope = ")
         libParts = SplitIniLine(libText)
         mainMount = libParts(12)
         syncID = libParts(7)
@@ -2860,9 +2903,6 @@ Private Sub AddPersonalProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
         .baseMount = mainMount
         .syncID = syncID
     End With
-    #If Mac Then
-        groupText = ConvertText(groupText, codeUTF16LE, codeUTF8, True)
-    #End If
     For Each lineText In Split(groupText, vbNewLine)
         If InStr(1, lineText, "_BaseUri", vbTextCompare) > 0 Then
             cID = LCase$(Mid$(lineText, InStrRev(lineText, "/") + 1))
