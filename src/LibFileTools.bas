@@ -2709,7 +2709,7 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             cSignature = "_" & parts(9) & parts(7) & parts(10)
             tempNamespace = GetUrlNamespace(aInfo.clientPath, cSignature)
             If LenB(tempNamespace) = 0 Then
-                cSignature = "_" & parts(9) & "_" & parts(7) & "_" & parts(10)
+                cSignature = "_" & parts(9) & "_" & parts(7)
                 tempNamespace = GetUrlNamespace(aInfo.clientPath, cSignature)
             End If
             tempURL = tempNamespace & tempURL
