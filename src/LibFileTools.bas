@@ -2716,12 +2716,12 @@ Private Sub AddBusinessProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             If LenB(tempNamespace) = 0 Then
                 cSignature = "_" & parts(9) & "_" & parts(7)
                 tempNamespace = GetUrlNamespace(aInfo.clientPath, cSignature)
-                If LenB(tempURL) = 0 Then
+                If LenB(tempNamespace) = 0 Then
                     If collUrlNamespace Is Nothing Then
                         Set collUrlNamespace = ReadNamespaces(aInfo)
                     End If
-                    tempURL = collUrlNamespace("{" & parts(9) & "}{" & parts(7) _
-                                             & "}{" & parts(10) & "}")
+                    tempNamespace = collUrlNamespace("{" & parts(9) & "}{" & parts(7) _
+                                             & "}{" & parts(8) & "}")
                 End If
             End If
             tempURL = tempNamespace & tempURL
@@ -2857,7 +2857,6 @@ Private Function ReadNamespaces(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO) As Collect
         k = GetTagValue(iniText, "IrmLibraryId = ") _
           & GetTagValue(iniText, "SiteID = ") _
           & GetTagValue(iniText, "WebID = ")
-        Debug.Print k
         collRes.Add GetTagValue(iniText, "DavUrlNamespace = "), Replace(k, "-", "")
     Next v
     Set ReadNamespaces = collRes
