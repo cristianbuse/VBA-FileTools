@@ -640,7 +640,7 @@ Public Function BrowseForFolder(Optional ByRef initialPath As String _
         Dir initialPath, Attributes:=vbDirectory
     End If
     Dim retPath
-    If LenB(dialogTitle) = 0 Then dialogTitle = "Choose Foldler"
+    If LenB(dialogTitle) = 0 Then dialogTitle = "Choose Folder"
     retPath = MacScript("choose folder with prompt """ & dialogTitle & """ as string")
     If Len(retPath) > 0 Then
         retPath = MacScript("POSIX path of """ & retPath & """")
@@ -3593,3 +3593,4 @@ Public Function GetMainBusinessURLs() As Collection
     Next i
     Set GetMainBusinessURLs = res
 End Function
+
