@@ -1167,7 +1167,7 @@ Public Function FixPathSeparators(ByRef pathToFix As String) As String
                               & Mid$(FixPathSeparators, i + 4)
             If sepIndex < i Then i = i - sepIndex
         End If
-    Loop Until i = 0
+    Loop Until i <= 1
 End Function
 
 '*******************************************************************************
@@ -3593,4 +3593,3 @@ Public Function GetMainBusinessURLs() As Collection
     Next i
     Set GetMainBusinessURLs = res
 End Function
-
