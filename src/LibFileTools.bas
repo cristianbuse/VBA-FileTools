@@ -3114,6 +3114,7 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
     Dim isASCII As Boolean
     Dim mustAdd As Boolean
     Dim idPattern As String
+    Dim o As Long
     '
     idPattern = Replace(Space$(12), " ", "[a-fA-F0-9]")
     If isPersonal Then
@@ -3162,13 +3163,22 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
                 If idSize(1) < minThreeIDSizes Then GoTo NextSig
             End If
             '
+            o = 0
             k = j + 1 'ID1 Start
             For j = j To j - headBytesOffset + 1 Step -1
-                If b(j) > maxSigByte Then GoTo NextSig
+                If b(j) > maxSigByte Then
+                    If b(j) = &HD And b(j - 1) = &HD Then
+                        j = j - 2
+                        o = 1
+                        Exit For
+                    Else
+                        GoTo NextSig
+                    End If
+                End If
             Next j
             If (b(j) <= maxSigByte) And (b(j - 1) < &H80) Then j = j - 1
             For t = 1 To 5
-                If b(j) < minName Then j = j - 1
+                If b(j) < minName Then j = j - 1 Else Exit For
             Next t
             '
             nameSize = b(j)
@@ -3188,11 +3198,22 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
                 idSize(1) = (b(j - 4) - 13) / 2
                 nameStart = k + idSize(1) + idSize(2) + idSize(3) + idSize(4)
             Else
+                If o = 1 Then
+                    o = 0
+                    For t = 1 To 5
+                        If b(j - 1) <= maxSigByte Then
+                            j = j - 1
+                            If b(j) = 1 Then o = o + 1
+                        Else
+                            Exit For
+                        End If
+                    Next t
+                End If
                 If b(j - 1) <> idSize(4) * 2 + 13 Then GoTo NextSig
                 idSize(3) = (b(j - 2) - 13) / 2
                 idSize(2) = (b(j - 3) - 13) / 2
                 idSize(1) = idSize(1) - idSize(2) - idSize(3)
-                nameStart = i + idSize(4)
+                nameStart = i + idSize(4) + o
             End If
             For j = 1 To 4
                 If (idSize(j) < minIDSize) _
