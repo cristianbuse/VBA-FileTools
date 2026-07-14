@@ -3103,7 +3103,6 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
     Dim i As Long
     Dim j As Long
     Dim k As Long
-    Dim t As Long
     Dim idSize(1 To 4) As Long
     Dim nameSize As Long
     Dim dirID As String
@@ -3166,7 +3165,9 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
             o = 0
             k = j + 1 'ID1 Start
             For j = j To j - headBytesOffset + 1 Step -1
+                If j < 2 Then GoTo NextSig
                 If b(j) > maxSigByte Then
+                    If j < 3 Then GoTo NextSig
                     If b(j) = &HD And b(j - 1) = &HD Then
                         j = j - 2
                         o = 1
@@ -3177,9 +3178,10 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
                 End If
             Next j
             If (b(j) <= maxSigByte) And (b(j - 1) < &H80) Then j = j - 1
-            For t = 1 To 5
-                If b(j) < minName Then j = j - 1 Else Exit For
-            Next t
+            For j = j To j - 4 Step -1
+                If j < 2 Then GoTo NextSig
+                If b(j) >= minName Then Exit For
+            Next j
             '
             nameSize = b(j)
             If nameSize Mod 2 = 0 Then GoTo NextSig
@@ -3200,14 +3202,11 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
             Else
                 If o = 1 Then
                     o = 0
-                    For t = 1 To 5
-                        If b(j - 1) <= maxSigByte Then
-                            j = j - 1
-                            If b(j) = 1 Then o = o + 1
-                        Else
-                            Exit For
-                        End If
-                    Next t
+                    For j = j To j - 4 Step -1
+                        If j < 2 Then GoTo NextSig
+                        If b(j - 1) > maxSigByte Then Exit For
+                        If b(j - 1) = 1 Then o = o + 1
+                    Next j
                 End If
                 If b(j - 1) <> idSize(4) * 2 + 13 Then GoTo NextSig
                 idSize(3) = (b(j - 2) - 13) / 2
