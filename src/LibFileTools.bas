@@ -3103,6 +3103,7 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
     Dim i As Long
     Dim j As Long
     Dim k As Long
+    Dim t As Long
     Dim idSize(1 To 4) As Long
     Dim nameSize As Long
     Dim dirID As String
@@ -3166,8 +3167,9 @@ Private Sub ReadDirsFromDB(ByRef filePath As String _
                 If b(j) > maxSigByte Then GoTo NextSig
             Next j
             If (b(j) <= maxSigByte) And (b(j - 1) < &H80) Then j = j - 1
-            If b(j) < minName Then j = j - 1
-            If b(j) < minName Then j = j - 1
+            For t = 1 To 5
+                If b(j) < minName Then j = j - 1
+            Next t
             '
             nameSize = b(j)
             If nameSize Mod 2 = 0 Then GoTo NextSig
