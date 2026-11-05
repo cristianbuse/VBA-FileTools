@@ -2969,6 +2969,7 @@ Private Function AddPersonalScopes(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO _
                 AddPersonalScopes = True
             End If
             parts = SplitIniLine(lineText)
+            If UBound(parts) < 11 Then GoTo NextLine
             dirPath = GetODDirPath(oDirs, parts(3))
             If LenB(dirPath) > 0 Then 'Else the folder is not synced yet
                 cID = LCase$(Mid$(parts(5), InStrRev(parts(5), "/") + 1))
@@ -2982,6 +2983,7 @@ Private Function AddPersonalScopes(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO _
                 End With
             End If
         End If
+NextLine:
     Next lineText
 End Function
 
@@ -2992,17 +2994,20 @@ End Function
 Private Function GetODDirPath(ByRef oDirs As DirsInfo _
                             , ByVal dirID As String) As String
     Dim i As Long
+    Dim depth As Long
     '
-    On Error Resume Next
-    Do
+    For depth = 1 To oDirs.dirCount + 1
+        i = 0
+        On Error Resume Next
         i = oDirs.idToIndex(dirID)
-        If Err.Number <> 0 Then Exit Do
+        On Error GoTo 0
+        If i = 0 Then Exit Function
         With oDirs.arrDirs(i)
             GetODDirPath = .dirName & PATH_SEPARATOR & GetODDirPath
             dirID = .parentID
         End With
-    Loop
-    On Error GoTo 0
+    Next depth
+    GetODDirPath = vbNullString 'The parent chain contains a cycle
 End Function
 
 '*******************************************************************************
