@@ -2154,14 +2154,21 @@ Private Function GetOneDriveLocalPath(ByVal odWebPath As String _
     ReadODProviders rebuildCache
     For i = 1 To m_providers.pCount
         If StrCompLeft(odWebPath, m_providers.arr(i).webPath, vbTextCompare) = 0 Then
-            collMatches.Add i
-            If Not m_providers.arr(i).isBusiness Then Exit For
-            If m_providers.arr(i).isMain Then
-                mainIndex = m_providers.arr(i).accountIndex
+            If m_providers.arr(i).isBusiness Then
+                collMatches.Add i
+                If m_providers.arr(i).isMain Then
+                    mainIndex = m_providers.arr(i).accountIndex
+                End If
+            ElseIf bestMatch = 0 Then
+                bestMatch = i
+            ElseIf Len(m_providers.arr(i).webPath) _
+                 > Len(m_providers.arr(bestMatch).webPath) Then
+                bestMatch = i 'Personal scopes can be nested. Deepest one wins
             End If
         End If
     Next i
     '
+    If bestMatch = 0 Then
     Select Case collMatches.Count
     Case 0: Exit Function
     Case 1: bestMatch = collMatches(1)
@@ -2195,6 +2202,7 @@ Private Function GetOneDriveLocalPath(ByVal odWebPath As String _
             Next v
         Loop Until bestMatch > 0
     End Select
+    End If
     With m_providers.arr(bestMatch)
         rPart = Mid$(odWebPath, Len(.webPath) + 1)
         GetOneDriveLocalPath = BuildPath(.mountPoint, rPart)
@@ -2366,7 +2374,7 @@ Private Sub ReadODProviders(ByVal rebuildCache As Boolean)
             If .isValid Then
                 If .isPersonal Then
                     AddPersonalProviders accountsInfo.arr(i)
-                    collTrackedFiles.Add .groupPath
+                    If IsFile(.groupPath) Then collTrackedFiles.Add .groupPath
                 Else
                     AddBusinessProviders accountsInfo.arr(i)
                     fileName = Dir(Replace(.clientPath, ".ini", "_*.ini"))
@@ -2878,6 +2886,8 @@ Private Sub AddPersonalProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
     Dim relPath As String
     Dim folderID As String
     Dim oDirs As DirsInfo
+    Dim dirsRead As Boolean
+    Dim dirPath As String
     Dim iniText As String
     '
     groupText = GetIniText(aInfo.groupPath)
@@ -2902,6 +2912,10 @@ Private Sub AddPersonalProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
         .baseMount = mainMount
         .syncID = syncID
     End With
+    'Migrated accounts keep shared folders in the same format as Business ones.
+    'Their GroupFolders.ini is no longer updated, so it must not be used at all
+    If AddPersonalScopes(aInfo, iniText, mainURL, mainMount, syncID) Then Exit Sub
+    '
     For Each lineText In Split(groupText, vbNewLine)
         If InStr(1, lineText, "_BaseUri", vbTextCompare) > 0 Then
             cID = LCase$(Mid$(lineText, InStrRev(lineText, "/") + 1))
@@ -2912,18 +2926,89 @@ Private Sub AddPersonalProviders(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO)
             If i > 0 Then
                 relPath = Mid$(lineText, i + 8)
                 folderID = Left$(lineText, i - 1)
-                If oDirs.dirCount = 0 Then ReadODDirs aInfo, oDirs
+                If Not dirsRead Then
+                    ReadODDirs aInfo, oDirs
+                    dirsRead = True
+                End If
+                dirPath = GetODDirPath(oDirs, folderID)
+                If LenB(dirPath) > 0 Then 'Else the folder is no longer synced
+                    With m_providers.arr(AddProvider())
+                        .webPath = mainURL & cID & "/" & relPath & "/"
+                        .mountPoint = BuildPath(mainMount, dirPath)
+                        .baseMount = mainMount
+                        .syncID = syncID
+                    End With
+                End If
+            End If
+        End If
+    Next lineText
+End Sub
+
+'*******************************************************************************
+'Adds the shared folders of a Personal account that lists them as 'AddedScope'
+'Returns False if there are no such lines, meaning the account was not migrated
+'The local path comes from the database because a folder can be renamed locally
+'*******************************************************************************
+Private Function AddPersonalScopes(ByRef aInfo As ONEDRIVE_ACCOUNT_INFO _
+                                 , ByRef iniText As String _
+                                 , ByRef mainURL As String _
+                                 , ByRef mainMount As String _
+                                 , ByRef syncID As String) As Boolean
+    Const scopeTag As String = "AddedScope = "
+    Dim lineText As Variant
+    Dim parts() As String
+    Dim oDirs As DirsInfo
+    Dim dirPath As String
+    Dim cID As String
+    Dim remotePath As String
+    '
+    For Each lineText In Split(iniText, vbNewLine)
+        If Left$(lineText, Len(scopeTag)) = scopeTag Then
+            If Not AddPersonalScopes Then
+                ReadDirsFromDB aInfo.dbPath, False, oDirs
+                AddPersonalScopes = True
+            End If
+            parts = SplitIniLine(lineText)
+            If UBound(parts) < 11 Then GoTo NextLine
+            dirPath = GetODDirPath(oDirs, parts(3))
+            If LenB(dirPath) > 0 Then 'Else the folder is not synced yet
+                cID = LCase$(Mid$(parts(5), InStrRev(parts(5), "/") + 1))
+                remotePath = Trim$(parts(11))
+                If LenB(remotePath) > 0 Then remotePath = remotePath & "/"
                 With m_providers.arr(AddProvider())
-                    .webPath = mainURL & cID & "/" & relPath & "/"
-                    relPath = oDirs.arrDirs(oDirs.idToIndex(folderID)).dirName
-                    .mountPoint = BuildPath(mainMount, relPath & "/")
+                    .webPath = mainURL & cID & "/" & remotePath
+                    .mountPoint = BuildPath(mainMount, dirPath)
                     .baseMount = mainMount
                     .syncID = syncID
                 End With
             End If
         End If
+NextLine:
     Next lineText
-End Sub
+End Function
+
+'*******************************************************************************
+'Returns the path of a folder relative to the OneDrive root, with a trailing
+'   separator, or a null string if the folder is not among the read folders
+'*******************************************************************************
+Private Function GetODDirPath(ByRef oDirs As DirsInfo _
+                            , ByVal dirID As String) As String
+    Dim i As Long
+    Dim depth As Long
+    '
+    For depth = 1 To oDirs.dirCount + 1
+        i = 0
+        On Error Resume Next
+        i = oDirs.idToIndex(dirID)
+        On Error GoTo 0
+        If i = 0 Then Exit Function
+        With oDirs.arrDirs(i)
+            GetODDirPath = .dirName & PATH_SEPARATOR & GetODDirPath
+            dirID = .parentID
+        End With
+    Next depth
+    GetODDirPath = vbNullString 'The parent chain contains a cycle
+End Function
 
 '*******************************************************************************
 'Utility - Retrieves all folders from an OneDrive account
